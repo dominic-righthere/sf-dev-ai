@@ -1,0 +1,145 @@
+@import "tailwindcss";
+@import "@xyflow/react/dist/style.css";
+
+@theme {
+  --color-bg-primary: #0a0a0f;
+  --color-bg-secondary: #12121a;
+  --color-bg-tertiary: #1a1a26;
+  --color-bg-elevated: #222233;
+  --color-border-default: #2a2a3d;
+  --color-border-subtle: #1e1e2e;
+  --color-text-primary: #e8e8f0;
+  --color-text-secondary: #9898b0;
+  --color-text-muted: #6868808;
+  --color-accent-blue: #4d8eff;
+  --color-accent-purple: #8b5cf6;
+  --color-accent-green: #22c55e;
+  --color-accent-amber: #f59e0b;
+  --color-accent-red: #ef4444;
+  --color-accent-cyan: #06b6d4;
+  --color-accent-pink: #ec4899;
+  --color-accent-orange: #f97316;
+
+  /* Flow node colors */
+  --color-node-start: #22c55e;
+  --color-node-screen: #4d8eff;
+  --color-node-decision: #f59e0b;
+  --color-node-assignment: #8b5cf6;
+  --color-node-record-create: #22c55e;
+  --color-node-record-update: #06b6d4;
+  --color-node-record-lookup: #4d8eff;
+  --color-node-record-delete: #ef4444;
+  --color-node-loop: #ec4899;
+  --color-node-action: #f97316;
+  --color-node-subflow: #8b5cf6;
+  --color-node-wait: #6868808;
+  --color-node-end: #ef4444;
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border-default);
+  }
+
+  body {
+    background-color: var(--color-bg-primary);
+    color: var(--color-text-primary);
+    font-family: var(--font-sans);
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-border-default);
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-text-muted);
+  }
+}
+
+/* React Flow customizations */
+.react-flow__background {
+  background-color: var(--color-bg-primary) !important;
+}
+
+.react-flow__minimap {
+  background-color: var(--color-bg-secondary) !important;
+  border: 1px solid var(--color-border-default) !important;
+  border-radius: 8px !important;
+}
+
+.react-flow__controls {
+  border: 1px solid var(--color-border-default) !important;
+  border-radius: 8px !important;
+  overflow: hidden;
+}
+
+.react-flow__controls-button {
+  background-color: var(--color-bg-secondary) !important;
+  border-color: var(--color-border-default) !important;
+  color: var(--color-text-secondary) !important;
+  fill: var(--color-text-secondary) !important;
+}
+
+.react-flow__controls-button:hover {
+  background-color: var(--color-bg-tertiary) !important;
+}
+
+/* Prompt bar glow animation */
+@keyframes prompt-glow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(77, 142, 255, 0.1);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(77, 142, 255, 0.2);
+  }
+}
+
+.prompt-bar-glow {
+  animation: prompt-glow 3s ease-in-out infinite;
+}
+
+/* Node appear animation */
+@keyframes node-appear {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.flow-node-appear {
+  animation: node-appear 0.3s ease-out;
+}
+
+/* Thinking dots animation */
+@keyframes thinking-dot {
+  0%, 80%, 100% {
+    opacity: 0.3;
+    transform: scale(0.8);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.thinking-dot:nth-child(1) { animation: thinking-dot 1.4s ease-in-out infinite 0s; }
+.thinking-dot:nth-child(2) { animation: thinking-dot 1.4s ease-in-out infinite 0.2s; }
+.thinking-dot:nth-child(3) { animation: thinking-dot 1.4s ease-in-out infinite 0.4s; }
