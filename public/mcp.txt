@@ -1,0 +1,8 @@
+# MCP Discovery - SF Dev AI
+# See: /.well-known/mcp.json
+
+MCP-Endpoint: /api/mcp/streamable-http
+MCP-Transport: streamable-http
+MCP-Auth: oauth2
+MCP-Name: SF Dev AI
+MCP-Description: Salesforce development workbench with AI-powered tools
