@@ -48,5 +48,6 @@ export type SSEEvent =
   | { type: "generation_summary"; data: { totalInputTokens: number; totalOutputTokens: number; estimatedCost: number; turns: number } }
   | { type: "clarification"; data: { question: string; options?: string[]; context?: string } }
   | { type: "assistant_message"; data: { text: string } }
+  | { type: "tool_result"; data: { toolName: string; result: string } }
   | { type: "error"; data: { message: string } }
   | { type: "done"; data: { status: string } };
