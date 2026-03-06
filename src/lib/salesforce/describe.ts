@@ -101,7 +101,7 @@ export async function getCachedDescribe(
   orgId: string,
   objectName: string
 ): Promise<SObjectDescribe | null> {
-  const results = db
+  const results = await db
     .select()
     .from(schemaCache)
     .where(
@@ -109,8 +109,7 @@ export async function getCachedDescribe(
         eq(schemaCache.orgId, orgId),
         eq(schemaCache.objectName, objectName)
       )
-    )
-    .all();
+    );
 
   if (results.length === 0) return null;
 
@@ -129,7 +128,8 @@ async function cacheDescribe(
   const id = `${orgId}:${objectName}`;
   const now = new Date();
 
-  db.insert(schemaCache)
+  await db
+    .insert(schemaCache)
     .values({
       id,
       orgId,
@@ -143,19 +143,17 @@ async function cacheDescribe(
         describeJson: JSON.stringify(describe),
         cachedAt: now,
       },
-    })
-    .run();
+    });
 }
 
 export async function searchSchema(
   orgId: string,
   query: string
 ): Promise<Array<{ objectName: string; fields: Array<{ name: string; label: string; type: string }> }>> {
-  const allCached = db
+  const allCached = await db
     .select()
     .from(schemaCache)
-    .where(eq(schemaCache.orgId, orgId))
-    .all();
+    .where(eq(schemaCache.orgId, orgId));
 
   const q = query.toLowerCase();
   const results: Array<{
@@ -188,15 +186,14 @@ export async function searchSchema(
   return results;
 }
 
-export function buildSchemaContext(
+export async function buildSchemaContext(
   orgId: string,
   objectNames: string[]
-): string {
-  const allCached = db
+): Promise<string> {
+  const allCached = await db
     .select()
     .from(schemaCache)
-    .where(eq(schemaCache.orgId, orgId))
-    .all();
+    .where(eq(schemaCache.orgId, orgId));
 
   const cachedMap = new Map(
     allCached.map((r) => [r.objectName, JSON.parse(r.describeJson) as SObjectDescribe])

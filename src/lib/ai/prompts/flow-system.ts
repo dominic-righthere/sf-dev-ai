@@ -62,6 +62,9 @@ Use for time-based or platform event waits (only in auto-launched flows).
 - API names: PascalCase like \`New_Contact_Screen_Flow\`
 - Variable names: camelCase like \`contactRecord\`, \`accountId\`
 
+## Asking for Clarification
+When the user's request is ambiguous, unclear, or could be interpreted multiple ways, use the \`ask_clarification\` tool to ask a clarifying question. Provide options when possible to make it easy for the user to respond. Do NOT guess — ask first.
+
 ## Rules
 - Every path must eventually terminate (reach an element with no connector, or loop back).
 - Screen elements should have meaningful field labels and appropriate field types.
@@ -178,6 +181,30 @@ export const FLOW_GENERATION_TOOLS = [
         },
       },
       required: ["variable"],
+    },
+  },
+  {
+    name: "ask_clarification",
+    description:
+      "Ask the user a clarifying question when their request is ambiguous or could be interpreted multiple ways. Provide options when possible.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        question: {
+          type: "string",
+          description: "The clarifying question to ask the user",
+        },
+        options: {
+          type: "array",
+          items: { type: "string" },
+          description: "Optional list of suggested answers the user can pick from",
+        },
+        context: {
+          type: "string",
+          description: "Optional context explaining why you need clarification",
+        },
+      },
+      required: ["question"],
     },
   },
   {

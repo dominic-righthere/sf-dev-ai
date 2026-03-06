@@ -44,5 +44,9 @@ export type SSEEvent =
   | { type: "flow_element"; data: Record<string, unknown> }
   | { type: "flow_variable"; data: Record<string, unknown> }
   | { type: "thinking"; data: { text: string } }
+  | { type: "usage"; data: { inputTokens: number; outputTokens: number } }
+  | { type: "generation_summary"; data: { totalInputTokens: number; totalOutputTokens: number; estimatedCost: number; turns: number } }
+  | { type: "clarification"; data: { question: string; options?: string[]; context?: string } }
+  | { type: "assistant_message"; data: { text: string } }
   | { type: "error"; data: { message: string } }
   | { type: "done"; data: { status: string } };

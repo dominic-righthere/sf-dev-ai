@@ -10,6 +10,7 @@ import type {
   WaitElement,
 } from "./types";
 import { layoutFlow } from "./layout";
+import { validateConnectorIntegrity } from "./validate";
 
 // -- Internal → React Flow --
 
@@ -35,8 +36,8 @@ export function flowToReactFlow(flow: FlowDefinition): {
     });
   }
 
-  const edges: Edge[] = flow.connectors.map((c, i) => ({
-    id: `edge-${i}`,
+  const edges: Edge[] = flow.connectors.map((c) => ({
+    id: `edge-${c.sourceId}-${c.targetId}-${c.type}`,
     source: c.sourceId,
     target: c.targetId,
     label: c.label,
@@ -139,6 +140,12 @@ export function buildConnectors(elements: Map<string, FlowElement>): FlowConnect
 // -- Internal → Salesforce Metadata XML --
 
 export function flowToMetadataXml(flow: FlowDefinition): string {
+  // Validate connector integrity before export
+  const connectorCheck = validateConnectorIntegrity(flow);
+  if (!connectorCheck.valid) {
+    console.warn("[flowToMetadataXml] Connector integrity warnings:", connectorCheck.errors);
+  }
+
   const metadata: Record<string, unknown> = {
     "?xml": { "@_version": "1.0", "@_encoding": "UTF-8" },
     Flow: {
@@ -405,6 +412,10 @@ function buildVariablesXml(flow: FlowDefinition): Record<string, unknown> {
 // -- Salesforce Metadata XML → Internal --
 
 export function metadataXmlToFlow(xml: string, flowId?: string): FlowDefinition {
+  if (!xml || typeof xml !== "string" || !xml.trim()) {
+    throw new Error("Invalid input: XML string is empty or not a string");
+  }
+
   const parser = new XMLParser({
     ignoreAttributes: false,
     attributeNamePrefix: "@_",
@@ -422,8 +433,17 @@ export function metadataXmlToFlow(xml: string, flowId?: string): FlowDefinition 
     },
   });
 
-  const parsed = parser.parse(xml);
-  const flowXml = parsed.Flow;
+  let parsed: Record<string, unknown>;
+  try {
+    parsed = parser.parse(xml);
+  } catch (err) {
+    throw new Error(`Failed to parse XML: ${err instanceof Error ? err.message : "Invalid XML"}`);
+  }
+
+  const flowXml = (parsed as Record<string, any>).Flow;
+  if (!flowXml) {
+    throw new Error("Missing <Flow> root element. Ensure this is a valid Salesforce Flow Metadata XML file.");
+  }
 
   const elements = new Map<string, FlowElement>();
   const startId = "start_element";

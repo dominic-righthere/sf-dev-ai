@@ -21,7 +21,7 @@ You receive the current flow state and a user request to modify it. You emit ONL
 - When adding a Decision branch, emit the Decision element with the new rule AND emit any new elements for the new branch.
 - Keep element IDs stable — reuse existing IDs when modifying elements.
 - Only change what the user asks for. Preserve everything else.
-- If the user's request is ambiguous, ask for clarification using plain text (don't emit elements).
+- If the user's request is ambiguous, use the \`ask_clarification\` tool to ask a clarifying question with suggested options.
 
 ## Connector Updates
 When inserting element B between A and C:

@@ -3,11 +3,12 @@
 import { useCallback, useRef } from "react";
 import { useFlowStore } from "@/stores/flow-store";
 import { useAIStore } from "@/stores/ai-store";
+import { useUIStore } from "@/stores/ui-store";
 import type { FlowElement, FlowVariable } from "@/lib/flow/types";
-import { flowElementSchema, flowVariableSchema } from "@/lib/flow/schema";
 
 export function useAIStream() {
   const abortRef = useRef<AbortController | null>(null);
+  const hadErrorRef = useRef(false);
 
   const {
     setFlowMetadata,
@@ -23,20 +24,30 @@ export function useAIStream() {
     setIsStreaming,
     setThinkingText,
     setError,
+    setGenerationStage,
+    incrementElementsBuilt,
+    addUsage,
+    setGenerationSummary,
+    setPendingClarification,
+    resetProgress,
     messages,
   } = useAIStore();
 
+  const setChatPanelOpen = useUIStore((s) => s.setChatPanelOpen);
+
   const generateFlow = useCallback(
     async (prompt: string) => {
-      // Abort any existing stream
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
 
+      hadErrorRef.current = false;
+      resetProgress();
       setIsStreaming(true);
       setIsGenerating(true);
       setError(null);
       setThinkingText("Thinking...");
+      setPendingClarification(null);
 
       addMessage({
         role: "user",
@@ -74,7 +85,6 @@ export function useAIStream() {
 
           buffer += decoder.decode(value, { stream: true });
 
-          // Parse SSE events from buffer
           const events = buffer.split("\n\n");
           buffer = events.pop() || "";
 
@@ -83,16 +93,17 @@ export function useAIStream() {
           }
         }
 
-        // Process remaining buffer
         if (buffer.trim()) {
           processSSEEvent(buffer);
         }
 
-        addMessage({
-          role: "assistant",
-          content: "Flow generated successfully.",
-          timestamp: Date.now(),
-        });
+        if (!hadErrorRef.current && !useAIStore.getState().pendingClarification) {
+          addMessage({
+            role: "assistant",
+            content: "Flow generated successfully.",
+            timestamp: Date.now(),
+          });
+        }
       } catch (err) {
         if ((err as Error).name !== "AbortError") {
           setError(err instanceof Error ? err.message : "Stream failed");
@@ -110,14 +121,17 @@ export function useAIStream() {
     async (prompt: string) => {
       if (!flow) return;
 
+      hadErrorRef.current = false;
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
 
+      resetProgress();
       setIsStreaming(true);
       setIsGenerating(true);
       setError(null);
       setThinkingText("Analyzing flow...");
+      setPendingClarification(null);
 
       addMessage({
         role: "user",
@@ -169,11 +183,13 @@ export function useAIStream() {
           processSSEEvent(buffer);
         }
 
-        addMessage({
-          role: "assistant",
-          content: "Flow refined successfully.",
-          timestamp: Date.now(),
-        });
+        if (!hadErrorRef.current && !useAIStore.getState().pendingClarification) {
+          addMessage({
+            role: "assistant",
+            content: "Flow refined successfully.",
+            timestamp: Date.now(),
+          });
+        }
       } catch (err) {
         if ((err as Error).name !== "AbortError") {
           setError(err instanceof Error ? err.message : "Stream failed");
@@ -206,7 +222,13 @@ export function useAIStream() {
       const data = JSON.parse(eventData);
 
       switch (eventType) {
+        case "thinking":
+          setGenerationStage("analyzing");
+          setThinkingText(data.text?.slice(0, 100) || "Thinking...");
+          break;
+
         case "flow_metadata":
+          setGenerationStage("designing");
           if (!flow) {
             initFlow(
               data.apiName || "New_Flow",
@@ -224,18 +246,20 @@ export function useAIStream() {
           break;
 
         case "flow_element": {
+          setGenerationStage("building");
           const element = data as FlowElement;
-          // Check if element already exists (refinement case)
           if (flow?.elements.has(element.id)) {
             updateElement(element.id, element);
           } else {
             addElement(element);
           }
+          incrementElementsBuilt();
           setThinkingText(`Adding ${element.type}: ${element.label}...`);
           break;
         }
 
         case "flow_variable": {
+          setGenerationStage("building");
           const variable = data as FlowVariable;
           const { addVariable } = useFlowStore.getState();
           const existingVar = flow?.variables.find((v) => v.name === variable.name);
@@ -245,19 +269,58 @@ export function useAIStream() {
           } else {
             addVariable({ ...variable, id: variable.name });
           }
+          incrementElementsBuilt();
           setThinkingText(`Adding variable: ${variable.name}...`);
           break;
         }
 
-        case "thinking":
-          setThinkingText(data.text?.slice(0, 100) || "Thinking...");
+        case "usage":
+          addUsage(data.inputTokens, data.outputTokens);
+          break;
+
+        case "generation_summary":
+          setGenerationSummary(data);
+          addMessage({
+            role: "assistant",
+            content: `Generation complete: ${data.totalInputTokens} in / ${data.totalOutputTokens} out tokens (~$${data.estimatedCost.toFixed(4)})`,
+            timestamp: Date.now(),
+            type: "generation_summary",
+            generationSummary: data,
+          });
+          break;
+
+        case "clarification":
+          setPendingClarification({
+            question: data.question,
+            options: data.options,
+            context: data.context,
+          });
+          addMessage({
+            role: "assistant",
+            content: data.question,
+            timestamp: Date.now(),
+            type: "clarification",
+            clarification: {
+              question: data.question,
+              options: data.options,
+              context: data.context,
+            },
+          });
+          // Auto-open chat panel
+          setChatPanelOpen(true);
+          break;
+
+        case "assistant_message":
+          // Don't add duplicate messages for thinking text
           break;
 
         case "error":
+          hadErrorRef.current = true;
           setError(data.message);
           break;
 
         case "done":
+          setGenerationStage("done");
           setThinkingText(null);
           break;
       }
@@ -271,6 +334,7 @@ export function useAIStream() {
     setIsStreaming(false);
     setIsGenerating(false);
     setThinkingText(null);
+    resetProgress();
   }, []);
 
   return { generateFlow, refineFlow, abort };

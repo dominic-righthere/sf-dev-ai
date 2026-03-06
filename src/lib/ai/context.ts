@@ -7,18 +7,20 @@ const COMMON_OBJECTS = [
   "Task", "Event", "User", "Campaign",
 ];
 
-export function assembleFlowContext(
+export async function assembleFlowContext(
   orgId: string,
   currentFlow?: FlowDefinition,
   objectNames?: string[]
-): string {
+): Promise<string> {
   const parts: string[] = [];
 
-  // Schema context
-  const objects = objectNames || COMMON_OBJECTS;
-  const schemaContext = buildSchemaContext(orgId, objects);
-  if (schemaContext.trim().length > 50) {
-    parts.push(schemaContext);
+  // Schema context (skip when no org is connected)
+  if (orgId) {
+    const objects = objectNames || COMMON_OBJECTS;
+    const schemaContext = await buildSchemaContext(orgId, objects);
+    if (schemaContext.trim().length > 50) {
+      parts.push(schemaContext);
+    }
   }
 
   // Current flow context (for refinement)

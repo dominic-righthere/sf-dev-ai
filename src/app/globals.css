@@ -2,41 +2,45 @@
 @import "@xyflow/react/dist/style.css";
 
 @theme {
-  --color-bg-primary: #0a0a0f;
-  --color-bg-secondary: #12121a;
-  --color-bg-tertiary: #1a1a26;
-  --color-bg-elevated: #222233;
-  --color-border-default: #2a2a3d;
-  --color-border-subtle: #1e1e2e;
-  --color-text-primary: #e8e8f0;
-  --color-text-secondary: #9898b0;
-  --color-text-muted: #6868808;
-  --color-accent-blue: #4d8eff;
-  --color-accent-purple: #8b5cf6;
-  --color-accent-green: #22c55e;
-  --color-accent-amber: #f59e0b;
-  --color-accent-red: #ef4444;
-  --color-accent-cyan: #06b6d4;
-  --color-accent-pink: #ec4899;
-  --color-accent-orange: #f97316;
+  /* Stormfront palette — deep navy-indigo atmosphere */
+  --color-bg-primary: #080b14;
+  --color-bg-secondary: #0f1422;
+  --color-bg-tertiary: #1a2035;
+  --color-bg-elevated: #232d45;
+  --color-border-default: #1e2a42;
+  --color-border-subtle: #141d30;
+  --color-text-primary: #e4e8f1;
+  --color-text-secondary: #8694ad;
+  --color-text-muted: #4f6078;
 
-  /* Flow node colors */
-  --color-node-start: #22c55e;
-  --color-node-screen: #4d8eff;
-  --color-node-decision: #f59e0b;
-  --color-node-assignment: #8b5cf6;
-  --color-node-record-create: #22c55e;
-  --color-node-record-update: #06b6d4;
-  --color-node-record-lookup: #4d8eff;
-  --color-node-record-delete: #ef4444;
-  --color-node-loop: #ec4899;
-  --color-node-action: #f97316;
-  --color-node-subflow: #8b5cf6;
-  --color-node-wait: #6868808;
-  --color-node-end: #ef4444;
+  /* Accent colors — electric & atmospheric */
+  --color-accent-blue: #1b96ff;
+  --color-accent-electric: #00ddb3;
+  --color-accent-purple: #7c5cfc;
+  --color-accent-green: #04e762;
+  --color-accent-amber: #fe9339;
+  --color-accent-red: #ff4d4f;
+  --color-accent-cyan: #00ddb3;
+  --color-accent-pink: #d355e7;
+  --color-accent-orange: #fe9339;
 
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  /* Flow node colors — Salesforce-coded */
+  --color-node-start: #04e762;
+  --color-node-screen: #1b96ff;
+  --color-node-decision: #fe9339;
+  --color-node-assignment: #7c5cfc;
+  --color-node-record-create: #04e762;
+  --color-node-record-update: #00ddb3;
+  --color-node-record-lookup: #1b96ff;
+  --color-node-record-delete: #ff4d4f;
+  --color-node-loop: #d355e7;
+  --color-node-action: #fe9339;
+  --color-node-subflow: #7c5cfc;
+  --color-node-wait: #4f6078;
+  --color-node-end: #ff4d4f;
+
+  --font-sans: "Geist", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, monospace;
 }
 
 @layer base {
@@ -85,6 +89,7 @@
   border: 1px solid var(--color-border-default) !important;
   border-radius: 8px !important;
   overflow: hidden;
+  z-index: 5 !important;
 }
 
 .react-flow__controls-button {
@@ -98,18 +103,36 @@
   background-color: var(--color-bg-tertiary) !important;
 }
 
-/* Prompt bar glow animation */
+.react-flow__controls-button svg path {
+  fill: inherit !important;
+}
+
+/* Prompt bar glow animation — electric teal */
 @keyframes prompt-glow {
   0%, 100% {
-    box-shadow: 0 0 20px rgba(77, 142, 255, 0.1);
+    box-shadow: 0 0 20px rgba(0, 221, 179, 0.1);
   }
   50% {
-    box-shadow: 0 0 40px rgba(77, 142, 255, 0.2);
+    box-shadow: 0 0 40px rgba(0, 221, 179, 0.2);
   }
 }
 
 .prompt-bar-glow {
   animation: prompt-glow 3s ease-in-out infinite;
+}
+
+/* Streaming left-border pulse */
+@keyframes border-pulse {
+  0%, 100% {
+    border-left-color: rgba(0, 221, 179, 0.3);
+  }
+  50% {
+    border-left-color: rgba(0, 221, 179, 0.8);
+  }
+}
+
+.prompt-bar-streaming {
+  animation: border-pulse 1.5s ease-in-out infinite;
 }
 
 /* Node appear animation */
@@ -143,3 +166,71 @@
 .thinking-dot:nth-child(1) { animation: thinking-dot 1.4s ease-in-out infinite 0s; }
 .thinking-dot:nth-child(2) { animation: thinking-dot 1.4s ease-in-out infinite 0.2s; }
 .thinking-dot:nth-child(3) { animation: thinking-dot 1.4s ease-in-out infinite 0.4s; }
+
+/* Sidebar glow effect for active items */
+@keyframes sidebar-glow {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(27, 150, 255, 0.15);
+  }
+  50% {
+    box-shadow: 0 0 16px rgba(27, 150, 255, 0.25);
+  }
+}
+
+.sidebar-active-glow {
+  box-shadow: 0 0 12px rgba(27, 150, 255, 0.2);
+}
+
+/* Logo lightning animation */
+@keyframes lightning-flash {
+  0%, 100% {
+    filter: drop-shadow(0 0 4px rgba(27, 150, 255, 0.3));
+  }
+  50% {
+    filter: drop-shadow(0 0 8px rgba(27, 150, 255, 0.6));
+  }
+}
+
+.logo-hover:hover {
+  animation: lightning-flash 0.6s ease-in-out;
+}
+
+/* Connection indicator pulse */
+@keyframes connection-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.connection-syncing {
+  animation: connection-pulse 1.5s ease-in-out infinite;
+}
+
+/* Empty state — animated flow construction */
+@keyframes node-trace-1 {
+  0%, 10% { opacity: 0; transform: translateY(4px); }
+  20%, 100% { opacity: 0.08; transform: translateY(0); }
+}
+
+@keyframes node-trace-2 {
+  0%, 30% { opacity: 0; transform: translateY(4px); }
+  40%, 100% { opacity: 0.08; transform: translateY(0); }
+}
+
+@keyframes node-trace-3 {
+  0%, 50% { opacity: 0; transform: translateY(4px); }
+  60%, 100% { opacity: 0.08; transform: translateY(0); }
+}
+
+@keyframes line-draw {
+  0%, 20% { stroke-dashoffset: 40; }
+  40%, 100% { stroke-dashoffset: 0; }
+}
+
+.empty-node-1 { animation: node-trace-1 4s ease-out infinite; }
+.empty-node-2 { animation: node-trace-2 4s ease-out infinite; }
+.empty-node-3 { animation: node-trace-3 4s ease-out infinite; }
+.empty-line { stroke-dasharray: 40; animation: line-draw 4s ease-out infinite; }

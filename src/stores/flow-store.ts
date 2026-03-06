@@ -6,13 +6,19 @@ import type {
   FlowVariable,
   FlowProcessType,
 } from "@/lib/flow/types";
-import { createEmptyFlow, serializeFlowDefinition } from "@/lib/flow/types";
-import { buildConnectors } from "@/lib/flow/converter";
+import {
+  createEmptyFlow,
+  serializeFlowDefinition,
+  deserializeFlowDefinition,
+} from "@/lib/flow/types";
+import { buildConnectors, metadataXmlToFlow } from "@/lib/flow/converter";
 
 interface FlowState {
   flow: FlowDefinition | null;
   isGenerating: boolean;
   isDirty: boolean;
+  draftId: string | null;
+  isSaving: boolean;
 
   // Actions
   initFlow: (apiName: string, label: string, processType?: FlowProcessType) => void;
@@ -32,7 +38,10 @@ interface FlowState {
   rebuildConnectors: () => void;
   setIsGenerating: (generating: boolean) => void;
   setIsDirty: (dirty: boolean) => void;
+  importFlowFromXml: (xml: string) => void;
   clearFlow: () => void;
+  saveFlow: () => Promise<void>;
+  loadFlow: (id: string) => Promise<void>;
 }
 
 export const useFlowStore = create<FlowState>()(
@@ -41,6 +50,8 @@ export const useFlowStore = create<FlowState>()(
       flow: null,
       isGenerating: false,
       isDirty: false,
+      draftId: null,
+      isSaving: false,
 
       initFlow: (apiName, label, processType = "Screen") => {
         set({
@@ -176,9 +187,73 @@ export const useFlowStore = create<FlowState>()(
         set({ flow: { ...flow, connectors } });
       },
 
+      importFlowFromXml: (xml: string) => {
+        const flow = metadataXmlToFlow(xml);
+        set({ flow, isDirty: true, draftId: null });
+      },
+
       setIsGenerating: (generating) => set({ isGenerating: generating }),
       setIsDirty: (dirty) => set({ isDirty: dirty }),
-      clearFlow: () => set({ flow: null, isDirty: false }),
+      clearFlow: () => set({ flow: null, isDirty: false, draftId: null }),
+
+      saveFlow: async () => {
+        const { flow, draftId } = get();
+        if (!flow) return;
+
+        set({ isSaving: true });
+
+        try {
+          const flowJson = serializeFlowDefinition(flow);
+
+          if (draftId) {
+            // Update existing draft
+            const res = await fetch(`/api/flows/${draftId}`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                apiName: flow.apiName,
+                label: flow.label,
+                description: flow.description,
+                flowJson,
+              }),
+            });
+            if (!res.ok) throw new Error("Failed to save flow");
+          } else {
+            // Create new draft
+            const res = await fetch("/api/flows", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                apiName: flow.apiName,
+                label: flow.label,
+                description: flow.description,
+                flowJson,
+              }),
+            });
+            if (!res.ok) throw new Error("Failed to save flow");
+            const data = await res.json();
+            set({ draftId: data.draft.id });
+          }
+
+          set({ isDirty: false });
+        } finally {
+          set({ isSaving: false });
+        }
+      },
+
+      loadFlow: async (id: string) => {
+        const res = await fetch(`/api/flows/${id}`);
+        if (!res.ok) throw new Error("Failed to load flow");
+
+        const data = await res.json();
+        const flow = deserializeFlowDefinition(data.draft.flowJson);
+
+        set({
+          flow,
+          draftId: data.draft.id,
+          isDirty: false,
+        });
+      },
     }),
     {
       limit: 50,

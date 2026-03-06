@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { buildAuthorizationUrl } from "@/lib/salesforce/auth";
+import { buildAuthorizationUrl, resolveCallbackUrl, generateCodeVerifier, generateCodeChallenge } from "@/lib/salesforce/auth";
 import { cookies } from "next/headers";
 
 export async function GET(request: NextRequest) {
@@ -15,15 +15,48 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // Store org type in a cookie for the callback
-  const cookieStore = await cookies();
-  cookieStore.set("sf_org_type", orgType, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    maxAge: 300, // 5 minutes
-  });
+  try {
+    // Derive external origin from forwarded headers (behind Traefik/proxy)
+    const forwardedHost = request.headers.get("x-forwarded-host") || request.headers.get("host");
+    const forwardedProto = request.headers.get("x-forwarded-proto") || "https";
+    const externalOrigin = forwardedHost
+      ? `${forwardedProto}://${forwardedHost}`
+      : new URL(request.url).origin;
+    const externalUrl = `${externalOrigin}${new URL(request.url).pathname}`;
 
-  const authUrl = buildAuthorizationUrl(orgType);
-  return NextResponse.redirect(authUrl);
+    const callbackUrl = resolveCallbackUrl(externalUrl);
+    const codeVerifier = generateCodeVerifier();
+    const codeChallenge = generateCodeChallenge(codeVerifier);
+
+    const cookieStore = await cookies();
+    cookieStore.set("sf_org_type", orgType, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "lax",
+      maxAge: 300,
+    });
+    cookieStore.set("sf_callback_url", callbackUrl, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "lax",
+      maxAge: 300,
+    });
+    cookieStore.set("sf_code_verifier", codeVerifier, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "lax",
+      maxAge: 300,
+    });
+
+    const authUrl = buildAuthorizationUrl(orgType, externalUrl, codeChallenge);
+    return NextResponse.redirect(authUrl);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "OAuth initialization failed";
+    const host = request.headers.get("x-forwarded-host") || request.headers.get("host");
+    const proto = request.headers.get("x-forwarded-proto") || "https";
+    const origin = host ? `${proto}://${host}` : new URL(request.url).origin;
+    return NextResponse.redirect(
+      `${origin}/auth/login?error=${encodeURIComponent(message)}`
+    );
+  }
 }

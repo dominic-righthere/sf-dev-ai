@@ -1,6 +1,6 @@
 "use client";
 
-import { Sparkles } from "lucide-react";
+import { Zap } from "lucide-react";
 import { useFlowStore } from "@/stores/flow-store";
 import { useAIStore } from "@/stores/ai-store";
 
@@ -14,7 +14,6 @@ export function SuggestionChips({ onSelect }: SuggestionChipsProps) {
 
   if (isStreaming || !flow || flow.elements.size <= 1) return null;
 
-  // Generate contextual suggestions based on current flow state
   const suggestions = getContextualSuggestions(flow);
 
   if (suggestions.length === 0) return null;
@@ -26,9 +25,9 @@ export function SuggestionChips({ onSelect }: SuggestionChipsProps) {
           <button
             key={suggestion}
             onClick={() => onSelect(suggestion)}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border-default bg-bg-secondary/90 backdrop-blur-sm px-3 py-1.5 text-xs text-text-secondary hover:text-text-primary hover:border-accent-blue/30 transition-colors"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border-subtle bg-bg-secondary/90 backdrop-blur-sm px-3 py-1.5 text-xs text-text-secondary hover:text-text-primary hover:border-accent-electric/30 transition-colors font-mono"
           >
-            <Sparkles className="h-3 w-3 text-accent-purple" />
+            <Zap className="h-3 w-3 text-accent-electric" />
             {suggestion}
           </button>
         ))}

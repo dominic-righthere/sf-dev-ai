@@ -1,6 +1,20 @@
 "use client";
 
 import { Handle, Position, type NodeProps } from "@xyflow/react";
+import {
+  Play,
+  Monitor,
+  GitBranch,
+  Variable,
+  FilePlus2,
+  FileEdit,
+  Search,
+  FileX2,
+  Repeat,
+  Zap,
+  GitFork,
+  Clock,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { FlowElement } from "@/lib/flow/types";
 import { useUIStore } from "@/stores/ui-store";
@@ -10,58 +24,79 @@ interface BaseNodeData {
   label: string;
 }
 
-const nodeColors: Record<string, string> = {
-  start: "border-node-start bg-node-start/10",
-  screen: "border-node-screen bg-node-screen/10",
-  decision: "border-node-decision bg-node-decision/10",
-  assignment: "border-node-assignment bg-node-assignment/10",
-  recordcreate: "border-node-record-create bg-node-record-create/10",
-  recordupdate: "border-node-record-update bg-node-record-update/10",
-  recordlookup: "border-node-record-lookup bg-node-record-lookup/10",
-  recorddelete: "border-node-record-delete bg-node-record-delete/10",
-  loop: "border-node-loop bg-node-loop/10",
-  actioncall: "border-node-action bg-node-action/10",
-  subflow: "border-node-subflow bg-node-subflow/10",
-  wait: "border-node-wait bg-node-wait/10",
+const nodeAccentColors: Record<string, string> = {
+  start: "border-l-node-start bg-node-start/8",
+  screen: "border-l-node-screen bg-node-screen/8",
+  decision: "border-l-node-decision bg-node-decision/8",
+  assignment: "border-l-node-assignment bg-node-assignment/8",
+  recordcreate: "border-l-node-record-create bg-node-record-create/8",
+  recordupdate: "border-l-node-record-update bg-node-record-update/8",
+  recordlookup: "border-l-node-record-lookup bg-node-record-lookup/8",
+  recorddelete: "border-l-node-record-delete bg-node-record-delete/8",
+  loop: "border-l-node-loop bg-node-loop/8",
+  actioncall: "border-l-node-action bg-node-action/8",
+  subflow: "border-l-node-subflow bg-node-subflow/8",
+  wait: "border-l-node-wait bg-node-wait/8",
 };
 
-const nodeIcons: Record<string, string> = {
-  Start: "▶",
-  Screen: "🖥",
-  Decision: "◆",
-  Assignment: "=",
-  RecordCreate: "+",
-  RecordUpdate: "↑",
-  RecordLookup: "🔍",
-  RecordDelete: "✕",
-  Loop: "↻",
-  ActionCall: "⚡",
-  Subflow: "↗",
-  Wait: "⏳",
+const nodeIconColors: Record<string, string> = {
+  start: "text-node-start",
+  screen: "text-node-screen",
+  decision: "text-node-decision",
+  assignment: "text-node-assignment",
+  recordcreate: "text-node-record-create",
+  recordupdate: "text-node-record-update",
+  recordlookup: "text-node-record-lookup",
+  recorddelete: "text-node-record-delete",
+  loop: "text-node-loop",
+  actioncall: "text-node-action",
+  subflow: "text-node-subflow",
+  wait: "text-node-wait",
+};
+
+const nodeIcons: Record<string, React.ComponentType<{ className?: string }>> = {
+  Start: Play,
+  Screen: Monitor,
+  Decision: GitBranch,
+  Assignment: Variable,
+  RecordCreate: FilePlus2,
+  RecordUpdate: FileEdit,
+  RecordLookup: Search,
+  RecordDelete: FileX2,
+  Loop: Repeat,
+  ActionCall: Zap,
+  Subflow: GitFork,
+  Wait: Clock,
 };
 
 export function BaseFlowNode({ data, selected }: NodeProps) {
   const { element, label } = data as unknown as BaseNodeData;
   const setSelectedNodeId = useUIStore((s) => s.setSelectedNodeId);
-  const colorClass = nodeColors[element.type.toLowerCase()] || "border-border-default bg-bg-secondary";
+  const accentClass = nodeAccentColors[element.type.toLowerCase()] || "border-l-border-default bg-bg-secondary";
+  const iconColorClass = nodeIconColors[element.type.toLowerCase()] || "text-text-muted";
+  const IconComponent = nodeIcons[element.type];
 
   return (
     <div
       className={cn(
-        "flow-node-appear rounded-xl border-2 px-4 py-3 shadow-lg min-w-[200px] max-w-[280px] cursor-pointer transition-all",
-        colorClass,
-        selected && "ring-2 ring-accent-blue ring-offset-2 ring-offset-bg-primary"
+        "flow-node-appear rounded-lg border border-border-default border-l-[3px] px-4 py-3 shadow-lg min-w-[200px] max-w-[280px] cursor-pointer transition-all bg-bg-secondary",
+        accentClass,
+        selected && "ring-2 ring-accent-blue/50 ring-offset-2 ring-offset-bg-primary"
       )}
       onClick={() => setSelectedNodeId(element.id)}
     >
       <Handle type="target" position={Position.Top} className="!bg-text-muted !w-2 !h-2" />
 
-      <div className="flex items-center gap-2">
-        <span className="text-lg" role="img" aria-label={element.type}>
-          {nodeIcons[element.type] || "●"}
-        </span>
+      <div className="flex items-center gap-2.5">
+        <div className={cn("shrink-0", iconColorClass)}>
+          {IconComponent ? (
+            <IconComponent className="h-4 w-4" />
+          ) : (
+            <Zap className="h-4 w-4" />
+          )}
+        </div>
         <div className="flex-1 min-w-0">
-          <div className="text-xs font-mono text-text-muted uppercase tracking-wider">
+          <div className="text-[10px] font-mono text-text-muted uppercase tracking-wider">
             {element.type}
           </div>
           <div className="text-sm font-medium text-text-primary truncate">
@@ -110,7 +145,6 @@ export function BaseFlowNode({ data, selected }: NodeProps) {
 
       <Handle type="source" position={Position.Bottom} className="!bg-text-muted !w-2 !h-2" />
 
-      {/* Extra handles for Decision (multiple outputs) */}
       {element.type === "Decision" && (
         <>
           <Handle
@@ -122,7 +156,6 @@ export function BaseFlowNode({ data, selected }: NodeProps) {
         </>
       )}
 
-      {/* Extra handles for Loop */}
       {element.type === "Loop" && (
         <Handle
           type="source"

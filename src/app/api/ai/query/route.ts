@@ -10,10 +10,6 @@ export async function POST(request: NextRequest) {
   const cookieStore = await cookies();
   const session = await getIronSession<SessionData>(cookieStore, sessionOptions);
 
-  if (!session.accessToken) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  }
-
   try {
     const body = await request.json();
     const { prompt } = body;
@@ -26,7 +22,7 @@ export async function POST(request: NextRequest) {
     }
 
     const client = getAnthropicClient();
-    const context = assembleFlowContext(session.orgId || "");
+    const context = await assembleFlowContext(session.orgId || "");
 
     const response = await client.messages.create({
       model: MODEL,

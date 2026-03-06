@@ -87,7 +87,7 @@ function renderTypeSpecificFields(element: FlowElement) {
           <div className="text-xs text-text-muted font-medium uppercase tracking-wider">
             Screen Fields
           </div>
-          {element.fields.map((field) => (
+          {(element.fields ?? []).map((field) => (
             <div
               key={field.id}
               className="rounded-lg border border-border-subtle p-2 space-y-1"
@@ -117,7 +117,7 @@ function renderTypeSpecificFields(element: FlowElement) {
           <div className="text-xs text-text-muted font-medium uppercase tracking-wider">
             Decision Rules
           </div>
-          {element.rules.map((rule) => (
+          {(element.rules ?? []).map((rule) => (
             <div
               key={rule.name}
               className="rounded-lg border border-border-subtle p-2 space-y-1"
@@ -126,7 +126,7 @@ function renderTypeSpecificFields(element: FlowElement) {
               <div className="text-xs text-text-muted">
                 Logic: {rule.conditionLogic}
               </div>
-              {rule.conditions.map((c, i) => (
+              {(rule.conditions ?? []).map((c, i) => (
                 <div key={i} className="text-xs font-mono text-text-secondary">
                   {c.leftValueReference} {c.operator}{" "}
                   {c.rightValue?.stringValue ||
@@ -149,7 +149,7 @@ function renderTypeSpecificFields(element: FlowElement) {
           <div className="text-xs text-text-muted font-medium uppercase tracking-wider">
             Field Assignments
           </div>
-          {element.inputAssignments.map((ia, i) => (
+          {(element.inputAssignments ?? []).map((ia, i) => (
             <div key={i} className="text-xs font-mono text-text-secondary">
               {ia.field} ={" "}
               {ia.value.elementReference ||
@@ -171,7 +171,7 @@ function renderTypeSpecificFields(element: FlowElement) {
           <div className="text-xs text-text-muted font-medium uppercase tracking-wider">
             Filters
           </div>
-          {element.filters.map((f, i) => (
+          {(element.filters ?? []).map((f, i) => (
             <div key={i} className="text-xs font-mono text-text-secondary">
               {f.field} {f.operator}{" "}
               {f.value.elementReference ||
@@ -189,7 +189,7 @@ function renderTypeSpecificFields(element: FlowElement) {
           <div className="text-xs text-text-muted font-medium uppercase tracking-wider">
             Assignments
           </div>
-          {element.assignmentItems.map((a, i) => (
+          {(element.assignmentItems ?? []).map((a, i) => (
             <div key={i} className="text-xs font-mono text-text-secondary">
               {a.assignToReference} {a.operator}{" "}
               {a.value.elementReference ||

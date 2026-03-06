@@ -1,15 +1,18 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Send, Play, Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useSession } from "@/hooks/use-session";
+import { useOrgStore } from "@/stores/org-store";
 import { toast } from "@/hooks/use-toast";
 
 export default function QueryPage() {
   useSession();
+  const isConnected = useOrgStore((s) => s.isConnected);
   const [nlInput, setNlInput] = useState("");
   const [soqlQuery, setSoqlQuery] = useState("");
   const [explanation, setExplanation] = useState("");
@@ -141,9 +144,10 @@ export default function QueryPage() {
               />
               <Button
                 onClick={handleRunQuery}
-                disabled={isRunning || !soqlQuery.trim()}
+                disabled={isRunning || !soqlQuery.trim() || !isConnected}
                 variant="secondary"
                 className="self-end gap-2"
+                title={!isConnected ? "Connect a Salesforce org to run queries" : undefined}
               >
                 {isRunning ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -153,6 +157,14 @@ export default function QueryPage() {
                 Run
               </Button>
             </div>
+            {!isConnected && (
+              <p className="text-xs text-amber-500">
+                Running queries requires a Salesforce connection.{" "}
+                <Link href="/auth/login" className="underline hover:text-amber-400">
+                  Connect now
+                </Link>
+              </p>
+            )}
           </div>
         )}
 
