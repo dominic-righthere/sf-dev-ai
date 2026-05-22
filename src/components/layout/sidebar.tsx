@@ -2,14 +2,20 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Workflow, Search, Database, Shield, LayoutDashboard, Settings, Zap } from "lucide-react";
+import { Workflow, Search, Database, Shield, LayoutDashboard, Settings, Home, Users, ShieldCheck, Wrench, BookOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { OrgSwitcher } from "@/components/layout/org-switcher";
 
 const navItems = [
+  { href: "/dashboard", label: "Dashboard", icon: Home },
   { href: "/flows", label: "Flows", icon: Workflow },
   { href: "/query", label: "Query", icon: Search },
   { href: "/objects", label: "Objects", icon: Database },
   { href: "/permissions", label: "Permissions", icon: Shield },
+  { href: "/rbac", label: "RBAC", icon: Users },
+  { href: "/health", label: "Health", icon: ShieldCheck },
+  { href: "/debt", label: "Tech Debt", icon: Wrench },
+  { href: "/docs", label: "Docs", icon: BookOpen },
   { href: "/pages", label: "Pages", icon: LayoutDashboard },
 ];
 
@@ -19,10 +25,11 @@ export function Sidebar() {
   return (
     <aside className="flex h-full w-16 flex-col items-center border-r border-border-default bg-bg-secondary py-4 gap-1">
       <Link
-        href="/flows"
+        href="/dashboard"
         className="logo-hover mb-6 flex h-10 w-10 items-center justify-center rounded-xl bg-accent-blue/15 text-accent-blue transition-all hover:bg-accent-blue/25"
+        title="Home"
       >
-        <Zap className="h-5 w-5" />
+        <Home className="h-5 w-5" />
       </Link>
 
       {navItems.map((item) => {
@@ -45,6 +52,8 @@ export function Sidebar() {
       })}
 
       <div className="flex-1" />
+
+      <OrgSwitcher />
 
       <Link
         href="/settings"

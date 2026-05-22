@@ -48,3 +48,6 @@ drizzle/meta/
 
 # Vercel
 .vercel
+
+# Internal memos
+.memo/

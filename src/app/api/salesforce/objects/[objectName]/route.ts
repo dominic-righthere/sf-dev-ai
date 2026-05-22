@@ -56,10 +56,10 @@ export async function GET(
       })),
   }));
 
-  const relationships = describe.childRelationships
+  const childRelationships = describe.childRelationships
     ?.filter((c) => c.relationshipName)
     .map((c) => ({
-      childObject: c.childSObject,
+      childSObject: c.childSObject,
       field: c.field,
       relationshipName: c.relationshipName,
     })) || [];
@@ -71,7 +71,7 @@ export async function GET(
     custom: describe.custom,
     keyPrefix: describe.keyPrefix,
     fields,
-    relationships,
+    childRelationships,
     customFieldMetadata: customFields.map((f: any) => ({
       fullName: f.fullName,
       lastModifiedDate: f.lastModifiedDate,

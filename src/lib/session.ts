@@ -2,14 +2,15 @@ import { SessionOptions } from "iron-session";
 
 export interface SessionData {
   accessToken?: string;
-  refreshToken?: string;
   instanceUrl?: string;
   orgId?: string;
-  userId?: string;
+  sfUserId?: string;
   username?: string;
   displayName?: string;
   orgType?: "production" | "sandbox";
   issuedAt?: number;
+  appUserId?: string;
+  orgConnectionId?: string;
 }
 
 export const sessionOptions: SessionOptions = {

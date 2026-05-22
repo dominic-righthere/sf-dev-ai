@@ -18,6 +18,9 @@ export async function GET() {
     orgId: session.orgId,
     orgType: session.orgType,
     instanceUrl: session.instanceUrl,
+    appUserId: session.appUserId,
+    orgConnectionId: session.orgConnectionId,
+    sfUserId: session.sfUserId,
   });
 }
 
