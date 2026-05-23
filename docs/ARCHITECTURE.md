@@ -87,7 +87,7 @@ The pattern is generalizable. If you add a new governance dimension (say, change
 
 ## Data model
 
-Drizzle ORM, PostgreSQL 17. Key tables:
+Drizzle ORM with a runtime dialect dispatcher: SQLite (`file:` / `sqlite:` URLs) for zero-setup dev and demos, PostgreSQL 17 for production. The schema is mirrored across `src/lib/db/schema.ts` (Postgres) and `src/lib/db/schema.sqlite.ts` (SQLite); `client.ts` lazy-loads only the driver matching `DATABASE_URL`, so a Postgres deployment never pulls in `better-sqlite3` and vice versa. Key tables:
 
 - `org_connections` — one row per (user, Salesforce org) pair. Stores instance URL, OAuth refresh token, org metadata. Multi-org switching via `/api/orgs/switch`.
 - `conversations` and `messages` — multi-turn chat history per org, including tool call JSON.
@@ -126,7 +126,7 @@ If this project moved inside Salesforce alongside Vibes and the DX MCP Server, m
 | AI provider | Anthropic SDK + AWS Bedrock fallback; Claude Sonnet 4 (`claude-sonnet-4-20250514`) |
 | Tool protocol | Model Context Protocol SDK 1.27, streamable-http transport |
 | Salesforce | jsforce 3, OAuth 2.0 + PKCE, SF CLI device flow |
-| Database | PostgreSQL 17, Drizzle ORM |
+| Database | SQLite (dev default) or PostgreSQL 17, Drizzle ORM with dialect dispatcher |
 | State | Zustand + Zundo (undo/redo for flow editor) |
 | Visualization | React Flow (`@xyflow/react`) + Dagre |
 | Styling | Tailwind CSS 4, Radix UI, Lucide icons |

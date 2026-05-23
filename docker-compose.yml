@@ -1,20 +1,14 @@
 services:
   web:
     build: .
+    profiles: ["full"]
+    ports:
+      - "3000:3000"
     volumes:
       - .:/app
       - node_modules:/app/node_modules
       - next:/app/.next
       - ~/.aws:/root/.aws:ro
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.sf-dev-ai.rule=Host(`sf-dev.localhost`)"
-      - "traefik.http.routers.sf-dev-ai.entrypoints=web,websecure"
-      - "traefik.http.routers.sf-dev-ai.tls=true"
-      - "traefik.http.services.sf-dev-ai.loadbalancer.server.port=3000"
-    networks:
-      - traefik-public
-      - default
     depends_on:
       db:
         condition: service_healthy
@@ -26,6 +20,8 @@ services:
 
   db:
     image: postgres:17-alpine
+    ports:
+      - "5432:5432"
     environment:
       POSTGRES_USER: sfdev
       POSTGRES_PASSWORD: sfdev
@@ -42,7 +38,3 @@ volumes:
   node_modules:
   next:
   pgdata:
-
-networks:
-  traefik-public:
-    external: true

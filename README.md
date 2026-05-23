@@ -51,24 +51,39 @@ The same MCP server powers the in-app agent and the external HTTP endpoint; per-
 
 ## 60-second try-it
 
-Prereqs: Node 22+, PostgreSQL 17 (or Docker), an Anthropic API key. **No Salesforce Connected App required.**
+Prereqs: Node 22+ and an Anthropic API key. **No database server. No Salesforce Connected App. No Docker.**
 
 ```bash
 git clone https://github.com/dominic-righthere/sf-dev-ai.git
 cd sf-dev-ai
 cp .env.example .env.local
-# Edit .env.local: add ANTHROPIC_API_KEY and SESSION_SECRET
-docker compose up
+# Edit .env.local: paste ANTHROPIC_API_KEY and generate a SESSION_SECRET
+#   openssl rand -base64 32   ← a fresh one
+npm install        # or: bun install
+npm run db:push    # creates ./sfdev.db (SQLite)
+npm run dev        # Turbopack at http://localhost:3000
 ```
 
 Open <http://localhost:3000>. Click **Device Login** — this uses the Salesforce CLI's pre-authorized client ID, no Connected App needed. Authorize in your org. Land on the dashboard. Ask the agent a question.
 
-For local (non-Docker) development:
+### Production-shaped alternative: Postgres via Docker
+
+If you want a Postgres-backed setup matching production:
 
 ```bash
-npm install        # or: bun install
-npm run db:push    # apply schema to your local Postgres
-npm run dev        # Turbopack
+cp .env.example .env.local
+# In .env.local, swap the SQLite line for the commented Postgres line.
+docker compose up -d db     # just the Postgres service
+npm install
+npm run db:push             # applies schema to Postgres
+npm run dev
+```
+
+Or to run the entire stack in Docker (web + db) behind your own reverse proxy:
+
+```bash
+docker compose --profile full up -d
+# Visit http://localhost:3000
 ```
 
 ## Setup
@@ -85,14 +100,17 @@ Required:
 # AI
 ANTHROPIC_API_KEY=sk-ant-...
 
-# Session
-SESSION_SECRET=generate-a-32-char-random-string-here
+# Session — generate with: openssl rand -base64 32
+SESSION_SECRET=
 
-# Database
-DATABASE_URL=postgresql://sfdev:sfdev@localhost:5432/sfdev
+# Database — pick one
+DATABASE_URL=file:./sfdev.db
+# DATABASE_URL=postgresql://sfdev:sfdev@localhost:5432/sfdev
 ```
 
-Optional (only if you want to use a custom Salesforce Connected App instead of the device flow):
+The app auto-selects the SQLite or Postgres driver based on the `DATABASE_URL` prefix (`file:`/`sqlite:` → SQLite, anything else → Postgres). Schema is mirrored across both dialects in [`src/lib/db/`](./src/lib/db/).
+
+Optional (only if you want a custom Salesforce Connected App instead of the device flow):
 
 ```env
 SF_CLIENT_ID=your_connected_app_client_id
@@ -111,10 +129,12 @@ BEDROCK_MODEL_ID=us.anthropic.claude-sonnet-4-20250514-v1:0
 ### Database
 
 ```bash
-npm run db:generate  # generate migration files from schema
-npm run db:push      # push schema directly to dev database
+npm run db:push      # push schema directly to the configured database
+npm run db:generate  # generate migration files (Postgres only, for production)
 npm run db:studio    # open Drizzle Studio
 ```
+
+All `db:*` scripts auto-load `.env.local` via `dotenv-cli`. Migrations live in `drizzle/` (Postgres) and `drizzle-sqlite/` (SQLite).
 
 ### Tech stack
 
@@ -125,7 +145,7 @@ npm run db:studio    # open Drizzle Studio
 | AI | Anthropic SDK 0.78 (Claude Sonnet 4), AWS Bedrock (optional) |
 | Tool Protocol | Model Context Protocol SDK 1.27, streamable-http transport |
 | Salesforce | jsforce 3, OAuth 2.0 + PKCE, SF CLI device flow |
-| Database | PostgreSQL 17, Drizzle ORM |
+| Database | SQLite (default, dev) or PostgreSQL 17, Drizzle ORM with dialect dispatcher |
 | State | Zustand, Zundo (undo/redo for flow editor) |
 | Visualization | React Flow (`@xyflow/react`), Dagre |
 | Session | iron-session (encrypted cookies) |

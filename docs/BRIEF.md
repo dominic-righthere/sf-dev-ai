@@ -36,7 +36,7 @@ Vibes lives in your editor, per file. SF Dev AI lives above the org, across file
 
 ## Stack
 
-Next.js 16 (App Router, Turbopack) · React 19 · TypeScript · Anthropic SDK + Bedrock · MCP SDK 1.27 · jsforce 3 · PostgreSQL 17 + Drizzle ORM · React Flow + Dagre · Tailwind 4 + Radix UI · iron-session.
+Next.js 16 (App Router, Turbopack) · React 19 · TypeScript · Anthropic SDK + Bedrock · MCP SDK 1.27 · jsforce 3 · Drizzle ORM (SQLite or PostgreSQL via dialect dispatcher) · React Flow + Dagre · Tailwind 4 + Radix UI · iron-session.
 
 ## Links
 
