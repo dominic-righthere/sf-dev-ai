@@ -3,11 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "bin": {
+    "sf-dev-ai-mcp": "bin/sf-dev-ai-mcp.ts"
+  },
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "mcp:stdio": "tsx bin/sf-dev-ai-mcp.ts",
     "db:generate": "dotenv -e .env.local -- drizzle-kit generate",
     "db:migrate": "dotenv -e .env.local -- drizzle-kit migrate",
     "db:push": "dotenv -e .env.local -- drizzle-kit push",
@@ -63,6 +67,7 @@
     "eslint": "^10.0.2",
     "eslint-config-next": "^16.1.6",
     "postcss": "^8.5.6",
-    "tailwindcss": "^4.2.1"
+    "tailwindcss": "^4.2.1",
+    "tsx": "^4.22.3"
   }
 }

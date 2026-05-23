@@ -166,6 +166,64 @@ The built-in MCP server exposes Salesforce operations as tools that any MCP clie
 
 External clients (Claude Code, Cursor) can connect at `/api/mcp/streamable-http`. The discovery manifest is published at `/.well-known/mcp.json` — it includes the tier of every tool, per-tool rate limits, per-page tool scoping, and security flags (`treat_page_content_as_untrusted`, `require_user_presence`, `tool_descriptions_authoritative`).
 
+### Use it from Claude Code / Cursor (stdio)
+
+The same MCP server runs as a stdio entry — `bin/sf-dev-ai-mcp.ts` — so Claude Code, Cursor, Windsurf, or any MCP client can drive it directly without the web UI. Auth reuses your local `~/.sfdx` (same as the `sf` CLI), so no extra login is needed.
+
+**Claude Code** — add to `~/.claude.json` (global) or `.mcp.json` (project):
+
+```jsonc
+{
+  "mcpServers": {
+    // Salesforce's own server — owns build/deploy/migrate/LWC
+    "salesforce-dx": {
+      "command": "npx",
+      "args": ["-y", "@salesforce/mcp",
+               "--orgs", "DEFAULT_TARGET_ORG",
+               "--toolsets", "data,metadata,testing,devops,lwc-experts"]
+    },
+    // sf-dev-ai — owns whole-org governance, health, debt, RBAC, docs
+    "sf-dev-ai": {
+      "command": "npx",
+      "args": ["tsx", "/absolute/path/to/sf-dev-ai/bin/sf-dev-ai-mcp.ts",
+               "--orgs", "DEFAULT_TARGET_ORG"]
+    }
+  }
+}
+```
+
+(Once we publish to npm, the second entry becomes `npx -y sf-dev-ai-mcp ...`. For now it points at the local checkout.)
+
+Then drop [`SKILL.md`](./SKILL.md) into `~/.claude/skills/sf-dev-ai/SKILL.md` so Claude Code knows when to prefer sf-dev-ai over DX MCP (governance tasks) and when to defer (LWC, DevOps Center, deploys).
+
+**Cursor** — `.cursor/mcp.json` uses the same shape:
+
+```jsonc
+{
+  "mcpServers": {
+    "sf-dev-ai": {
+      "command": "npx",
+      "args": ["tsx", "/absolute/path/to/sf-dev-ai/bin/sf-dev-ai-mcp.ts", "--orgs", "DEFAULT_TARGET_ORG"]
+    }
+  }
+}
+```
+
+**Local-dev convenience** — run the stdio server in a terminal to verify it boots before wiring it up to a client:
+
+```bash
+echo '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' \
+  | npm run mcp:stdio -- --orgs DEFAULT_TARGET_ORG
+```
+
+You should see a JSON-RPC `tools` response with ~27 tools and the stderr line `[sf-dev-ai-mcp] connected as <user> on <instanceUrl>`.
+
+### Why two MCP servers, not one
+
+Salesforce's [`@salesforce/mcp`](https://github.com/salesforcecli/mcp) is a build/deploy/migrate/IDE-developer server: ~60 tools across LWC creation, Aura→LWC migration, Code Analyzer, DevOps Center, mobile LWC. It has **no governance, RBAC, health, debt, FlexiPage, or Flow-introspection tools**, and **no tier-based safety model** (no per-tool confirmation, no prod-deploy guard).
+
+sf-dev-ai-mcp occupies the complementary lane — it's the org-analyst/governance server with explicit tier 0–3 confirmation semantics. Register both, and Claude Code routes each task to the right lane via the SKILL.md.
+
 ## Database
 
 Drizzle ORM manages the persistence layer:
