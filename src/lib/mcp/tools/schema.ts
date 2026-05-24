@@ -1,6 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type Connection from "jsforce/lib/connection";
 import { z } from "zod";
+import { ANNOTATIONS } from "../annotations";
 
 export function registerSchemaTools(
   server: McpServer,
@@ -14,6 +15,7 @@ export function registerSchemaTools(
         .string()
         .describe("SObject API name (e.g. Account, Contact, Custom__c)"),
     },
+    ANNOTATIONS.read,
     async ({ objectName }) => {
       const conn = getConnection();
       const result = await conn.describe(objectName);
@@ -81,6 +83,7 @@ export function registerSchemaTools(
         .optional()
         .describe("Filter by standard or custom objects (default: all)"),
     },
+    ANNOTATIONS.read,
     async ({ filter }) => {
       const conn = getConnection();
       const result = await conn.describeGlobal();
@@ -122,6 +125,7 @@ export function registerSchemaTools(
     {
       query: z.string().describe("Search term to match against object name or label"),
     },
+    ANNOTATIONS.read,
     async ({ query }) => {
       const conn = getConnection();
       const result = await conn.describeGlobal();
@@ -158,6 +162,7 @@ export function registerSchemaTools(
       objectName: z.string().describe("SObject API name"),
       fieldName: z.string().describe("Field API name"),
     },
+    ANNOTATIONS.read,
     async ({ objectName, fieldName }) => {
       const conn = getConnection();
       const result = await conn.describe(objectName);

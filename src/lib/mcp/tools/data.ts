@@ -1,6 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type Connection from "jsforce/lib/connection";
 import { z } from "zod";
+import { ANNOTATIONS } from "../annotations";
 
 export function registerDataTools(
   server: McpServer,
@@ -10,6 +11,7 @@ export function registerDataTools(
     "run_soql_query",
     "Execute a SOQL query against the connected Salesforce org. SELECT queries only, capped at 200 records.",
     { soql: z.string().describe("SOQL query string (SELECT only)") },
+    ANNOTATIONS.read,
     async ({ soql }) => {
       const trimmed = soql.trim();
       if (!/^SELECT\b/i.test(trimmed)) {
@@ -46,6 +48,7 @@ export function registerDataTools(
         .optional()
         .describe("Optional WHERE clause (without the WHERE keyword)"),
     },
+    ANNOTATIONS.read,
     async ({ objectName, where }) => {
       const conn = getConnection();
       const soql = `SELECT COUNT() FROM ${objectName}${where ? ` WHERE ${where}` : ""}`;
@@ -70,6 +73,7 @@ export function registerDataTools(
         .record(z.string(), z.unknown())
         .describe("Field API name → value pairs for the new record"),
     },
+    ANNOTATIONS.create,
     async ({ objectName, fields }) => {
       const conn = getConnection();
       const result = await conn.sobject(objectName).create(fields as any) as any;
@@ -110,6 +114,7 @@ export function registerDataTools(
         .record(z.string(), z.unknown())
         .describe("Field API name → new value pairs"),
     },
+    ANNOTATIONS.update,
     async ({ objectName, recordId, fields }) => {
       const conn = getConnection();
       const result = await conn
@@ -146,6 +151,7 @@ export function registerDataTools(
       objectName: z.string().describe("SObject API name"),
       recordId: z.string().describe("18-character Salesforce record ID"),
     },
+    ANNOTATIONS.delete,
     async ({ objectName, recordId }) => {
       const conn = getConnection();
       const result = await conn.sobject(objectName).destroy(recordId);

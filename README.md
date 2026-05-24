@@ -222,7 +222,7 @@ You should see a JSON-RPC `tools` response with ~27 tools and the stderr line `[
 
 Salesforce's [`@salesforce/mcp`](https://github.com/salesforcecli/mcp) is a build/deploy/migrate/IDE-developer server: ~60 tools across LWC creation, Aura→LWC migration, Code Analyzer, DevOps Center, mobile LWC. It has **no governance, RBAC, health, debt, FlexiPage, or Flow-introspection tools**, and **no tier-based safety model** (no per-tool confirmation, no prod-deploy guard).
 
-sf-dev-ai-mcp occupies the complementary lane — it's the org-analyst/governance server with explicit tier 0–3 confirmation semantics. Register both, and Claude Code routes each task to the right lane via the SKILL.md.
+sf-dev-ai-mcp occupies the complementary lane — it's the org-analyst/governance server with explicit tier 0–3 confirmation semantics, surfaced as MCP tool annotations (`readOnlyHint`, `destructiveHint`, `idempotentHint`) so MCP clients render confirmation gates natively without parsing a manifest. Register both, and Claude Code routes each task to the right lane via the SKILL.md.
 
 ## Database
 

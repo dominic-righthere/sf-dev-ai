@@ -1,6 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type Connection from "jsforce/lib/connection";
 import { z } from "zod";
+import { ANNOTATIONS } from "../annotations";
 
 const METADATA_TYPES = [
   "ApexClass",
@@ -39,6 +40,7 @@ export function registerMetadataTools(
         .optional()
         .describe("Folder/object name for types that require it (e.g. object name for CustomField)"),
     },
+    ANNOTATIONS.read,
     async ({ metadataType, folder }) => {
       const conn = getConnection();
       const queries: Array<{ type: string; folder?: string }> = [
@@ -82,6 +84,7 @@ export function registerMetadataTools(
         .string()
         .describe("Full name of the component (e.g. Account.Status__c, My_Flow)"),
     },
+    ANNOTATIONS.readSensitive,
     async ({ metadataType, fullName }) => {
       const conn = getConnection();
       const result = await conn.metadata.read(metadataType as any, fullName);
@@ -100,6 +103,7 @@ export function registerMetadataTools(
     "list_apex_classes",
     "List all Apex classes in the org with name, status, and body length.",
     {},
+    ANNOTATIONS.read,
     async () => {
       const conn = getConnection();
       const result = await conn.tooling.query(
@@ -134,6 +138,7 @@ export function registerMetadataTools(
     "read_apex_class",
     "Read the full body of an Apex class.",
     { name: z.string().describe("Apex class name") },
+    ANNOTATIONS.readSensitive,
     async ({ name }) => {
       const conn = getConnection();
       const result = await conn.tooling.query(
@@ -171,6 +176,7 @@ export function registerMetadataTools(
     "list_apex_triggers",
     "List all Apex triggers in the org.",
     {},
+    ANNOTATIONS.read,
     async () => {
       const conn = getConnection();
       const result = await conn.tooling.query(
@@ -205,6 +211,7 @@ export function registerMetadataTools(
     "list_flexipages",
     "List all Lightning FlexiPages (App, Record, and Home pages) in the org.",
     {},
+    ANNOTATIONS.read,
     async () => {
       const conn = getConnection();
       const result = await conn.metadata.list([{ type: "FlexiPage" }]);
@@ -236,6 +243,7 @@ export function registerMetadataTools(
     "read_flexipage",
     "Read full metadata for a Lightning FlexiPage including layout, regions, and components.",
     { name: z.string().describe("FlexiPage full name") },
+    ANNOTATIONS.readSensitive,
     async ({ name }) => {
       const conn = getConnection();
       const result = await conn.metadata.read("FlexiPage", name);

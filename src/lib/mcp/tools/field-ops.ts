@@ -1,6 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type Connection from "jsforce/lib/connection";
 import { z } from "zod";
+import { ANNOTATIONS } from "../annotations";
 
 const fieldTypeEnum = z.enum([
   "Text",
@@ -60,6 +61,7 @@ export function registerFieldOpsTools(
       defaultValue: z.string().optional().describe("Default value expression"),
       externalId: z.boolean().optional().describe("Mark as external ID"),
     },
+    ANNOTATIONS.create,
     async (input) => {
       const conn = getConnection();
       const fullName = `${input.objectName}.${input.fieldName}__c`;
@@ -204,6 +206,7 @@ export function registerFieldOpsTools(
         .optional()
         .describe("New picklist values (replaces existing)"),
     },
+    ANNOTATIONS.update,
     async (input) => {
       const conn = getConnection();
       const update: Record<string, unknown> = { fullName: input.fullName };
@@ -263,6 +266,7 @@ export function registerFieldOpsTools(
         .string()
         .describe("Full field name (e.g. Account.Status__c)"),
     },
+    ANNOTATIONS.delete,
     async ({ fullName }) => {
       const conn = getConnection();
       const result = await conn.metadata.delete("CustomField", fullName);
@@ -315,6 +319,7 @@ export function registerFieldOpsTools(
       active: z.boolean().optional().describe("Whether the rule is active (default true)"),
       description: z.string().optional().describe("Description of the rule"),
     },
+    ANNOTATIONS.create,
     async (input) => {
       const conn = getConnection();
       const fullName = `${input.objectName}.${input.ruleName}`;
@@ -373,6 +378,7 @@ export function registerFieldOpsTools(
       errorMessage: z.string().optional().describe("New error message"),
       description: z.string().optional().describe("New description"),
     },
+    ANNOTATIONS.update,
     async (input) => {
       const conn = getConnection();
       const update: Record<string, unknown> = { fullName: input.fullName };

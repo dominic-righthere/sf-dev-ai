@@ -1,5 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
+import { ANNOTATIONS } from "../annotations";
 
 /**
  * Flow building tools for the AI agent. These don't use jsforce directly —
@@ -25,6 +26,7 @@ export function registerFlowTools(
         .enum(["Screen", "AutoLaunchedFlow", "Flow"])
         .describe("Flow process type"),
     },
+    ANNOTATIONS.uiEvent,
     async (input) => {
       onFlowEvent("flow_metadata", input);
       return {
@@ -70,6 +72,7 @@ export function registerFlowTools(
         .passthrough()
         .describe("Flow element with type-specific properties"),
     },
+    ANNOTATIONS.uiEvent,
     async ({ element }) => {
       onFlowEvent("flow_element", element);
       return {
@@ -120,6 +123,7 @@ export function registerFlowTools(
         })
         .describe("Flow variable definition"),
     },
+    ANNOTATIONS.uiEvent,
     async ({ variable }) => {
       onFlowEvent("flow_variable", variable);
       return {
@@ -156,6 +160,7 @@ export function registerInteractionTools(
         .optional()
         .describe("Why you need clarification"),
     },
+    ANNOTATIONS.uiEvent,
     async (input) => {
       onEvent("clarification", input);
       setStopLoop();

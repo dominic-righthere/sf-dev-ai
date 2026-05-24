@@ -1,6 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type Connection from "jsforce/lib/connection";
 import { z } from "zod";
+import { ANNOTATIONS } from "../annotations";
 
 export function registerPermissionTools(
   server: McpServer,
@@ -10,6 +11,7 @@ export function registerPermissionTools(
     "list_permission_sets",
     "List all permission sets in the org.",
     {},
+    ANNOTATIONS.read,
     async () => {
       const conn = getConnection();
       const result = await conn.metadata.list([{ type: "PermissionSet" }]);
@@ -42,6 +44,7 @@ export function registerPermissionTools(
     "list_profiles",
     "List all profiles in the org.",
     {},
+    ANNOTATIONS.read,
     async () => {
       const conn = getConnection();
       const result = await conn.metadata.list([{ type: "Profile" }]);
@@ -75,6 +78,7 @@ export function registerPermissionTools(
     {
       fullName: z.string().describe("Permission set API name"),
     },
+    ANNOTATIONS.readSensitive,
     async ({ fullName }) => {
       const conn = getConnection();
       const result = await conn.metadata.read("PermissionSet", fullName);
@@ -95,6 +99,7 @@ export function registerPermissionTools(
     {
       fullName: z.string().describe("Profile API name"),
     },
+    ANNOTATIONS.readSensitive,
     async ({ fullName }) => {
       const conn = getConnection();
       const result = await conn.metadata.read("Profile", fullName);
@@ -126,6 +131,7 @@ export function registerPermissionTools(
         )
         .describe("Array of field permission updates"),
     },
+    ANNOTATIONS.update,
     async ({ permissionSetName, fieldPermissions }) => {
       const conn = getConnection();
 
@@ -215,6 +221,7 @@ export function registerPermissionTools(
         )
         .describe("Array of object permission updates"),
     },
+    ANNOTATIONS.update,
     async ({ permissionSetName, objectPermissions }) => {
       const conn = getConnection();
 
