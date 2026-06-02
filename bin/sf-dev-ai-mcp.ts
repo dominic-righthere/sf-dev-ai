@@ -15,10 +15,15 @@
  *   npx sf-dev-ai-mcp --orgs my-prod --toolsets data,schema,permissions
  */
 
+// MUST be first: loads .env.local so DATABASE_URL is populated before any
+// import that touches db/client (governance tools transitively need it).
+import "./_load-env";
+
 import { parseArgs } from "node:util";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { createSalesforceMcpServer, type ToolSet } from "../src/lib/mcp/server";
 import { resolveAuth, buildConnection } from "../src/lib/mcp/sf-cli-auth";
+import { registerDxProxyTools, type DxProxyHandle } from "../src/lib/mcp/dx-proxy";
 
 const DEFAULT_TOOLSETS: ToolSet[] = [
   "data",
@@ -26,6 +31,8 @@ const DEFAULT_TOOLSETS: ToolSet[] = [
   "metadata",
   "field_ops",
   "permissions",
+  "governance",
+  "apex",
 ];
 
 function usage(exitCode = 0): never {
@@ -42,9 +49,15 @@ function usage(exitCode = 0): never {
       "                        DEFAULT_TARGET_DEV_HUB.",
       "  --toolsets <list>     Comma-separated toolsets to enable.",
       `                        Default: ${DEFAULT_TOOLSETS.join(",")}`,
+      "  --with-dx-mcp         Spawn @salesforce/mcp as a child process and",
+      "                        re-export a curated subset of its tools through",
+      "                        this server with sf-dev-ai's tier annotations.",
+      "                        Adds 4 dx_* tools (run_apex_test, run_code_analyzer,",
+      "                        query_code_analyzer_results, assign_permission_set).",
       "  --help                Show this help.",
       "",
-      "Available toolsets: data, schema, metadata, field_ops, permissions",
+      "Available toolsets: data, schema, metadata, field_ops, permissions,",
+      "                    governance, apex",
       "",
       "Auth: reuses ~/.sfdx — run `sf org login web` first.",
       "",
@@ -55,7 +68,15 @@ function usage(exitCode = 0): never {
 
 function parseToolsets(raw: string | undefined): ToolSet[] {
   if (!raw) return DEFAULT_TOOLSETS;
-  const valid: ToolSet[] = ["data", "schema", "metadata", "field_ops", "permissions"];
+  const valid: ToolSet[] = [
+    "data",
+    "schema",
+    "metadata",
+    "field_ops",
+    "permissions",
+    "governance",
+    "apex",
+  ];
   const requested = raw.split(",").map((s) => s.trim()).filter(Boolean);
   const out: ToolSet[] = [];
   for (const t of requested) {
@@ -73,6 +94,7 @@ async function main() {
     options: {
       orgs: { type: "string" },
       toolsets: { type: "string" },
+      "with-dx-mcp": { type: "boolean" },
       help: { type: "boolean", short: "h" },
     },
     strict: false,
@@ -100,22 +122,72 @@ async function main() {
     })\n`,
   );
 
+  const orgType: "production" | "sandbox" = auth.isSandbox ? "sandbox" : "production";
   const toolsets = parseToolsets(values.toolsets as string | undefined);
   const server = createSalesforceMcpServer({
     getConnection: () => conn,
     toolsets,
+    getOrgContext: () => ({ orgId: auth.orgId, orgType }),
   });
 
+  // Optional: spawn @salesforce/mcp as a child stdio process and re-export
+  // its curated tools through this server with our tier annotations.
+  let dxHandle: DxProxyHandle | undefined;
+  if (values["with-dx-mcp"]) {
+    try {
+      dxHandle = await registerDxProxyTools(server, { orgArg: firstOrg });
+    } catch (err) {
+      process.stderr.write(
+        `[sf-dev-ai-mcp] WARN: --with-dx-mcp failed to initialise: ${
+          (err as Error).message
+        }\n[sf-dev-ai-mcp] continuing without DX MCP tools.\n`,
+      );
+    }
+  }
+
   const transport = new StdioServerTransport();
+
+  // Graceful shutdown plumbing — call dxHandle.shutdown() exactly once and
+  // exit. Idempotent so multiple signals/EOFs don't race.
+  let shuttingDown = false;
+  const shutdown = async (reason: string) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    process.stderr.write(`[sf-dev-ai-mcp] shutting down (${reason})\n`);
+    if (dxHandle) {
+      try {
+        await dxHandle.shutdown();
+      } catch (err) {
+        process.stderr.write(
+          `[sf-dev-ai-mcp] dx-proxy shutdown error: ${(err as Error).message}\n`,
+        );
+      }
+    }
+    process.exit(0);
+  };
+
+  // When the client (Claude Code, Cursor, etc.) disconnects, our stdin
+  // receives EOF. StdioServerTransport does not auto-detect this (its
+  // onclose only fires when WE call close()) so we listen directly and
+  // trigger shutdown ourselves. In-flight tool calls are dropped — the
+  // client that requested them is gone.
+  process.stdin.on("end", () => shutdown("stdin EOF"));
+  transport.onclose = () => shutdown("transport closed");
+
+  // Signals: SIGTERM (clean kill), SIGINT (^C), SIGPIPE (broken stdout pipe).
+  for (const sig of ["SIGTERM", "SIGINT", "SIGPIPE"] as const) {
+    process.on(sig, () => {
+      void shutdown(`signal ${sig}`);
+    });
+  }
+
   await server.connect(transport);
 
   process.stderr.write(
-    `[sf-dev-ai-mcp] ready · toolsets: ${toolsets.join(", ")}\n`,
+    `[sf-dev-ai-mcp] ready · toolsets: ${toolsets.join(", ")}${
+      dxHandle ? ` · dx-proxy: ${dxHandle.registeredCount} tools` : ""
+    }\n`,
   );
-
-  // The StdioServerTransport handles lifecycle: when the client closes stdin,
-  // the transport closes and the event loop empties naturally. Don't add a
-  // hard process.exit on stdin close — that races with in-flight tool calls.
 }
 
 main().catch((err) => {

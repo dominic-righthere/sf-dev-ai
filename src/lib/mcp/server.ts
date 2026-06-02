@@ -6,6 +6,8 @@ import { registerMetadataTools } from "./tools/metadata";
 import { registerFieldOpsTools } from "./tools/field-ops";
 import { registerPermissionTools } from "./tools/permissions";
 import { registerFlowTools, registerInteractionTools } from "./tools/flow";
+import { registerGovernanceTools, type OrgContext } from "./tools/governance";
+import { registerApexTools } from "./tools/apex";
 
 export type ToolSet =
   | "data"
@@ -13,6 +15,8 @@ export type ToolSet =
   | "metadata"
   | "field_ops"
   | "permissions"
+  | "governance"
+  | "apex"
   | "flow"
   | "interaction";
 
@@ -37,12 +41,19 @@ export function createSalesforceMcpServer(options: {
   onEvent?: (event: string, data: unknown) => void;
   /** Callback to stop the agent loop (for clarification) */
   onStopLoop?: () => void;
+  /**
+   * Org context for governance tools (orgId + orgType). Required if
+   * "governance" is in toolsets; otherwise optional. Constant for stdio
+   * (resolved once at boot), dynamic for the in-app agent route.
+   */
+  getOrgContext?: () => OrgContext;
 }): McpServer {
   const {
     getConnection,
     toolsets = ALL_TOOLSETS,
     onEvent,
     onStopLoop,
+    getOrgContext,
   } = options;
 
   const server = new McpServer({
@@ -67,6 +78,14 @@ export function createSalesforceMcpServer(options: {
       case "permissions":
         registerPermissionTools(server, getConnection);
         break;
+      case "governance":
+        if (getOrgContext) {
+          registerGovernanceTools(server, getConnection, getOrgContext);
+        }
+        break;
+      case "apex":
+        registerApexTools(server, getConnection);
+        break;
       case "flow":
         if (onEvent) {
           registerFlowTools(server, onEvent);
@@ -87,17 +106,27 @@ export function createSalesforceMcpServer(options: {
  * Preset tool compositions for different contexts.
  */
 export const TOOL_PRESETS = {
-  /** External MCP clients get all non-flow tools */
-  external: ["data", "schema", "metadata", "field_ops", "permissions"] as ToolSet[],
+  /** External MCP clients get all non-flow tools, including governance + apex. */
+  external: [
+    "data",
+    "schema",
+    "metadata",
+    "field_ops",
+    "permissions",
+    "governance",
+    "apex",
+  ] as ToolSet[],
   /** Flow generation/refinement */
   flow: ["schema", "flow", "interaction"] as ToolSet[],
-  /** General agent (objects, permissions, query pages) */
+  /** General agent (objects, permissions, query pages, governance feedback loop) */
   agent: [
     "data",
     "schema",
     "metadata",
     "field_ops",
     "permissions",
+    "governance",
+    "apex",
     "interaction",
   ] as ToolSet[],
   /** Query page agent */
