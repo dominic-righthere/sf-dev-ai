@@ -5,25 +5,28 @@ description: Salesforce org governance, security health, technical debt, RBAC au
 
 # SF Dev AI — Claude Code Skill
 
-Use the **sf-dev-ai** MCP server when working with Salesforce orgs from Claude Code. It's a governance-focused stdio MCP server that complements (does not replace) the official `@salesforce/mcp` server.
+Use the **sf-dev-ai** MCP server when working with Salesforce orgs from Claude Code. It's a governance-focused stdio MCP server that **composes with** the official `@salesforce/mcp` server — when launched with `--with-dx-mcp`, sf-dev-ai spawns DX MCP as a child process and re-exports a curated subset of its tools as `dx_*` with sf-dev-ai's tier annotations on top.
 
-## When to prefer sf-dev-ai over Salesforce DX MCP
+## When to prefer sf-dev-ai-native tools over `dx_*` (and vice versa)
 
 | Task | Use |
 |---|---|
-| Read SOQL, describe objects, list metadata | sf-dev-ai (lighter surface) |
-| Inspect permission sets, profiles, RBAC | **sf-dev-ai** (DX MCP has none) |
-| Run a security health scan or technical-debt scan | **sf-dev-ai** (DX MCP has none) |
-| Read or analyse a FlexiPage / Flow | **sf-dev-ai** (DX MCP has none) |
-| Generate org documentation | **sf-dev-ai** (DX MCP has none) |
-| Create / update / delete custom fields, validation rules | **sf-dev-ai** (high-level CRUD tools; DX MCP requires deploying XML) |
-| Create / scaffold LWC components | DX MCP (`@salesforce/mcp`, lwc-experts toolset) |
-| Aura → LWC migration, SLDS uplift, Figma → LWC | DX MCP |
-| Deploy a metadata bundle, run Apex tests | DX MCP (`deploy_metadata`, `run_apex_test`) |
-| DevOps Center work items, PRs, pipeline promotion | DX MCP (`devops` toolset) |
-| Mobile LWC capability checks | DX MCP |
+| Read SOQL, describe objects, list metadata | sf-dev-ai-native (`run_soql_query`, `describe_object`, …) |
+| Inspect permission sets, profiles, RBAC | **sf-dev-ai-native** (DX MCP has none) |
+| Read health / debt / RBAC findings | **sf-dev-ai-native** (`get_health_findings`, `get_debt_findings`, `get_rbac_audit`) |
+| Generate org documentation | **sf-dev-ai-native** (DX MCP has none) |
+| Read or analyse a FlexiPage / Flow | **sf-dev-ai-native** (DX MCP has none) |
+| Create / update / delete custom fields, validation rules | **sf-dev-ai-native** (`create_custom_field`, …) — high-level CRUD without XML round-trip |
+| Validate generated Apex (compile + run) | **sf-dev-ai-native** (`execute_anonymous_apex`) |
+| Run Apex tests against the org | **`dx_run_apex_test`** (proxied from `@salesforce/mcp`) |
+| Static analysis (PMD / ESLint / RetireJS) | **`dx_run_code_analyzer`** / **`dx_query_code_analyzer_results`** |
+| Assign a user to a permission set | **`dx_assign_permission_set`** |
+| Deploy a metadata bundle | DX MCP `deploy_metadata` (register `@salesforce/mcp` separately; NOT proxied — production-deploy safety is significant) |
+| Create / scaffold LWC components | DX MCP (`lwc-experts` toolset; not proxied) |
+| Aura → LWC migration, SLDS uplift, Figma → LWC | DX MCP (not proxied) |
+| DevOps Center work items, PRs, pipeline promotion | DX MCP (`devops` toolset; not proxied) |
 
-When both servers are registered, scope your tool calls to the right lane. Don't use sf-dev-ai's `read_metadata` for what DX MCP's `deploy_metadata` flow expects; don't use DX MCP's `run_code_analyzer` for what sf-dev-ai's health/debt scanners exist for.
+The `dx_*` tools available in unified-proxy mode carry sf-dev-ai's tier annotations even though `@salesforce/mcp` itself ships no annotations. That's the safety overlay.
 
 ## Tier model (read before mutating)
 
@@ -38,11 +41,12 @@ Salesforce's own DX MCP Server does not have a tier model. When you're in a mixe
 
 ## Common workflows
 
-### Governance audit
-1. `run_soql_query` → check user counts, license counts, recent admin actions.
-2. `list_profiles` + `read_profile` for non-admin profiles → look for ModifyAllData, ViewAllData, ManageUsers, AuthorApex.
-3. `list_permission_sets` + `read_permission_set` → unassigned sets, overly broad sets.
-4. Summarize with severity (critical/high/medium/low) and concrete remediation (e.g. "remove ModifyAllData from profile `Sales User`").
+### Governance audit (preferred path)
+1. `get_health_findings` → 16 deterministic rules across profiles, permission sets, user access, object security. Returns A-F grade, severity-categorised findings, affected items, remedies.
+2. `get_debt_findings` → Apex coverage gaps, inactive metadata, automation hygiene.
+3. `get_rbac_audit` → user → permission set graph, unassigned permission sets, permission set groups.
+4. If the agent needs to dig deeper, fall through to `read_profile` / `read_permission_set` for specific affected items, or `run_soql_query` for ad-hoc queries.
+5. Summarize with severity and concrete remediation (e.g. "remove ModifyAllData from profile `Sales User`"). Propose mutations via tier-2 tools (`update_field_permissions`, `update_object_permissions`) only with user confirmation.
 
 ### Permission drift investigation
 1. `read_permission_set` for two perm sets to diff.
@@ -56,6 +60,12 @@ Salesforce's own DX MCP Server does not have a tier model. When you're in a mixe
 1. `describe_object` to confirm where the field belongs.
 2. `create_custom_field` (tier 2 — confirm) with explicit type, length/precision, picklist values.
 3. `update_field_permissions` to grant access on the relevant permission set(s).
+
+### Validating AI-generated Apex
+1. Draft Apex code based on the user's request.
+2. `execute_anonymous_apex` (tier 2 — confirm; runs as the authenticated user) with `System.debug()` calls to surface intermediate values.
+3. If compile fails, inspect `exception.line` / `exception.column` and revise. If runtime exception, fix and re-run.
+4. For test class coverage, use `dx_run_apex_test` (proxied from DX MCP) once the implementation compiles.
 
 ## Auth
 

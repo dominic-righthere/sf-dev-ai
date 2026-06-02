@@ -161,8 +161,11 @@ The built-in MCP server exposes Salesforce operations as tools that any MCP clie
 | **metadata** | `list_metadata`, `read_metadata` (tier 1), Apex classes/triggers, FlexiPages |
 | **field-ops** | `create_custom_field`, `update_custom_field`, `delete_custom_field`, `create_validation_rule`, `update_validation_rule` |
 | **permissions** | `list_permission_sets`, `list_profiles`, `read_permission_set` (tier 1), `update_field_permissions`, `update_object_permissions` |
+| **governance** | `get_health_findings`, `get_debt_findings`, `get_rbac_audit` — agent-side feedback loop into the static-analysis engines (tier 0, read-only) |
+| **apex** | `execute_anonymous_apex` (tier 2) — Tooling API; lets an agent validate Apex it generated before deploying |
 | **flow** | Generate and refine flow definitions |
 | **interaction** | `ask_clarification` (HITL via tool), emit UI events, stop agent loop |
+| **proxied (`--with-dx-mcp`)** | `dx_run_apex_test`, `dx_run_code_analyzer`, `dx_query_code_analyzer_results`, `dx_assign_permission_set` — re-exported from `@salesforce/mcp` with sf-dev-ai's tier annotations |
 
 External clients (Claude Code, Cursor) can connect at `/api/mcp/streamable-http`. The discovery manifest is published at `/.well-known/mcp.json` — it includes the tier of every tool, per-tool rate limits, per-page tool scoping, and security flags (`treat_page_content_as_untrusted`, `require_user_presence`, `tool_descriptions_authoritative`).
 
@@ -170,19 +173,39 @@ External clients (Claude Code, Cursor) can connect at `/api/mcp/streamable-http`
 
 The same MCP server runs as a stdio entry — `bin/sf-dev-ai-mcp.ts` — so Claude Code, Cursor, Windsurf, or any MCP client can drive it directly without the web UI. Auth reuses your local `~/.sfdx` (same as the `sf` CLI), so no extra login is needed.
 
-**Claude Code** — add to `~/.claude.json` (global) or `.mcp.json` (project):
+Two integration modes:
+
+1. **Unified-proxy mode (`--with-dx-mcp`, recommended).** sf-dev-ai-mcp spawns Salesforce's official [`@salesforce/mcp`](https://github.com/salesforcecli/mcp) as a child process and re-exports a curated subset of its tools (`dx_run_apex_test`, `dx_run_code_analyzer`, `dx_query_code_analyzer_results`, `dx_assign_permission_set`) through one endpoint, with **sf-dev-ai's tier annotations layered on top**. The MCP client sees one server, one unified safety model.
+2. **Side-by-side mode.** Register both servers separately. Slightly faster startup (no child spawn), but the client sees two endpoints with different safety semantics.
+
+**Claude Code, unified-proxy mode** — add to `~/.claude.json` (global) or `.mcp.json` (project):
 
 ```jsonc
 {
   "mcpServers": {
-    // Salesforce's own server — owns build/deploy/migrate/LWC
+    "sf-dev-ai": {
+      "command": "npx",
+      "args": ["tsx", "/absolute/path/to/sf-dev-ai/bin/sf-dev-ai-mcp.ts",
+               "--orgs", "DEFAULT_TARGET_ORG",
+               "--with-dx-mcp"]
+    }
+  }
+}
+```
+
+This single entry exposes 35 tools: 27 native (data/schema/metadata/field_ops/permissions) + 3 governance + 1 apex + 4 proxied `dx_*` tools. All carry MCP annotations (`readOnlyHint`, `destructiveHint`, `idempotentHint`) so Claude Code renders confirmation gates natively for tier-2/3 operations.
+
+**Claude Code, side-by-side mode** — if you'd rather register Salesforce's server directly:
+
+```jsonc
+{
+  "mcpServers": {
     "salesforce-dx": {
       "command": "npx",
       "args": ["-y", "@salesforce/mcp",
                "--orgs", "DEFAULT_TARGET_ORG",
                "--toolsets", "data,metadata,testing,devops,lwc-experts"]
     },
-    // sf-dev-ai — owns whole-org governance, health, debt, RBAC, docs
     "sf-dev-ai": {
       "command": "npx",
       "args": ["tsx", "/absolute/path/to/sf-dev-ai/bin/sf-dev-ai-mcp.ts",
@@ -192,37 +215,28 @@ The same MCP server runs as a stdio entry — `bin/sf-dev-ai-mcp.ts` — so Clau
 }
 ```
 
-(Once we publish to npm, the second entry becomes `npx -y sf-dev-ai-mcp ...`. For now it points at the local checkout.)
+(Once published to npm, the sf-dev-ai entry becomes `npx -y sf-dev-ai-mcp ...`. For now it points at the local checkout.)
 
-Then drop [`SKILL.md`](./SKILL.md) into `~/.claude/skills/sf-dev-ai/SKILL.md` so Claude Code knows when to prefer sf-dev-ai over DX MCP (governance tasks) and when to defer (LWC, DevOps Center, deploys).
+Then drop [`SKILL.md`](./SKILL.md) into `~/.claude/skills/sf-dev-ai/SKILL.md` so Claude Code knows when to prefer sf-dev-ai (governance tasks) and when to defer (LWC, DevOps Center, deploys via DX MCP).
 
-**Cursor** — `.cursor/mcp.json` uses the same shape:
-
-```jsonc
-{
-  "mcpServers": {
-    "sf-dev-ai": {
-      "command": "npx",
-      "args": ["tsx", "/absolute/path/to/sf-dev-ai/bin/sf-dev-ai-mcp.ts", "--orgs", "DEFAULT_TARGET_ORG"]
-    }
-  }
-}
-```
+**Cursor / Windsurf** — `.cursor/mcp.json` and Windsurf's equivalent take the same shape; just substitute the absolute path and add `--with-dx-mcp` if you want unified proxy mode.
 
 **Local-dev convenience** — run the stdio server in a terminal to verify it boots before wiring it up to a client:
 
 ```bash
 echo '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' \
-  | npm run mcp:stdio -- --orgs DEFAULT_TARGET_ORG
+  | npm run mcp:stdio -- --orgs DEFAULT_TARGET_ORG --with-dx-mcp
 ```
 
-You should see a JSON-RPC `tools` response with ~27 tools and the stderr line `[sf-dev-ai-mcp] connected as <user> on <instanceUrl>`.
+You should see a JSON-RPC `tools` response with 35 tools (without `--with-dx-mcp`: 31) and the stderr line `[sf-dev-ai-mcp] ready · ... · dx-proxy: 4 tools`.
 
-### Why two MCP servers, not one
+### Why a proxy, not just two MCP servers
 
-Salesforce's [`@salesforce/mcp`](https://github.com/salesforcecli/mcp) is a build/deploy/migrate/IDE-developer server: ~60 tools across LWC creation, Aura→LWC migration, Code Analyzer, DevOps Center, mobile LWC. It has **no governance, RBAC, health, debt, FlexiPage, or Flow-introspection tools**, and **no tier-based safety model** (no per-tool confirmation, no prod-deploy guard).
+Salesforce's [`@salesforce/mcp`](https://github.com/salesforcecli/mcp) is a build/deploy/migrate/IDE-developer server: ~60 tools across LWC creation, Aura→LWC migration, Code Analyzer, DevOps Center, mobile LWC. It has **no governance, RBAC, health, debt, FlexiPage, or Flow-introspection tools**, and **no tier-based safety model** (no per-tool confirmation, no prod-deploy guard). Apache-2.0 licensed.
 
-sf-dev-ai-mcp occupies the complementary lane — it's the org-analyst/governance server with explicit tier 0–3 confirmation semantics, surfaced as MCP tool annotations (`readOnlyHint`, `destructiveHint`, `idempotentHint`) so MCP clients render confirmation gates natively without parsing a manifest. Register both, and Claude Code routes each task to the right lane via the SKILL.md.
+sf-dev-ai-mcp's `--with-dx-mcp` mode spawns `@salesforce/mcp` as a child stdio process and re-exports a curated subset of its tools through this server with our tier annotations overlaid. The result is **one MCP endpoint a developer registers, one unified safety model across both lanes** — governance (native) + build/deploy/migrate (proxied). It's the safety layer over Salesforce's own server that the official server doesn't ship.
+
+(`@salesforce/mcp` is bundled as a regular dependency — see [`src/lib/mcp/dx-tool-map.ts`](./src/lib/mcp/dx-tool-map.ts) for the whitelist + tier overlay. Apache-2.0 attribution lives in `node_modules/@salesforce/mcp/LICENSE.txt`.)
 
 ## Database
 
@@ -241,12 +255,12 @@ The cache layer (`src/lib/db/cache.ts`) enforces TTLs per data type: object desc
 
 The Health Hub illustrates the architectural pattern used across all the governance modules: **deterministic static analysis + LLM as explainer and actor**, not LLM-as-analyzer.
 
-The scanner runs 13 checks across four categories:
+The scanner runs 16 checks across four categories:
 
-- **Profiles** — non-admin profiles with Modify All Data (critical), View All Data, Manage Users, Author Apex.
+- **Profiles** — non-admin profiles with Modify All Data (critical), View All Data, Manage Users, Author Apex, **API Enabled on Standard User**.
 - **Permission Sets** — sets with Modify All Data or View All Data, unassigned sets, empty permission set groups.
-- **User Access** — excessive System Administrator accounts, users with >10 permission sets, users on profile-only access.
-- **Object Security** — objects with ModifyAll or ViewAll granted to many profiles or permission sets.
+- **User Access** — excessive System Administrator accounts, users with >10 permission sets, users on profile-only access, **session timeout longer than 8 hours**.
+- **Object Security** — objects with ModifyAll or ViewAll granted to many profiles or permission sets, **objects with Public Read/Write organisation-wide default**.
 
 Each finding has severity, a best practice explanation, concrete remediation steps, and a list of affected items. The org receives a score (0–100) and a letter grade. The agent reads findings as structured data and can — with tier-2 confirmation — apply remediations through the Metadata API. The LLM is used where it's strong (explanation, prioritisation, dialogue); the analysis itself is reproducible code.
 
