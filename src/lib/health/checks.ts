@@ -10,6 +10,7 @@ interface PermissionSetRecord {
   PermissionsViewAllData: boolean;
   PermissionsManageUsers: boolean;
   PermissionsAuthorApex: boolean;
+  PermissionsApiEnabled?: boolean;
 }
 
 interface ObjectPermissionRecord {
@@ -21,6 +22,29 @@ interface ObjectPermissionRecord {
   PermissionsModifyAllRecords: boolean;
 }
 
+export interface EntitySharingRecord {
+  QualifiedApiName: string;
+  Label: string;
+  InternalSharingModel: string;
+  ExternalSharingModel: string;
+}
+
+/**
+ * Subset of the Salesforce SecuritySettings metadata type that our rules
+ * inspect. Optional fields → graceful degradation when a particular field
+ * isn't present (org edition / API version variance).
+ */
+export interface SecuritySettings {
+  sessionSettings?: {
+    sessionTimeout?: string; // e.g. "TwoHours" | "EightHours" | "TwelveHours" | "TwentyFourHours"
+    forceLogoutOnSessionTimeout?: boolean;
+    requireHttpOnly?: boolean;
+  };
+  networkAccess?: {
+    requireHttps?: boolean;
+  };
+}
+
 export interface ScanData {
   profilePermissions: PermissionSetRecord[];
   permSetPermissions: PermissionSetRecord[];
@@ -29,6 +53,10 @@ export interface ScanData {
   unassignedPermSets: { id: string; name: string; label: string }[];
   permSetGroups: PermissionSetGroupInfo[];
   orgType: "production" | "sandbox" | undefined;
+  /** Optional — populated by collectSetupSecurityData. Null if the read failed. */
+  entitySharing?: EntitySharingRecord[] | null;
+  /** Optional — populated by collectSetupSecurityData. Null if the read failed. */
+  securitySettings?: SecuritySettings | null;
 }
 
 interface CheckDefinition {
@@ -488,6 +516,118 @@ export const checks: CheckDefinition[] = [
             name: obj,
             detail: `${parents.length} entries: ${parents.slice(0, 5).join(", ")}${parents.length > 5 ? "..." : ""}`,
           })),
+        },
+      ];
+    },
+  },
+  // --- Setup-level security (Phase 5D) ---
+  // These checks rely on optional data populated by collectSetupSecurityData.
+  // When the upstream API call fails or returns nothing, the check returns
+  // [] silently — the scan succeeds with the rest of the rules.
+  {
+    id: "PROFILE_API_ENABLED_ON_STANDARD_USER",
+    category: "profiles",
+    severity: "medium",
+    title: "API access enabled on the Standard User profile",
+    bestPractice:
+      "The Standard User profile is a default baseline. Granting API Enabled here gives every user assigned to it programmatic access to the org, which is rarely intended and broadens the attack surface.",
+    remedy:
+      "Remove the API Enabled permission from the Standard User profile and grant it via a dedicated permission set to users who genuinely need API access (integrations, developers).",
+    evaluate: (data) => {
+      const flagged = data.profilePermissions.filter(
+        (p) =>
+          p.PermissionsApiEnabled === true &&
+          (p["Profile.Name"] || "").toLowerCase().trim() === "standard user",
+      );
+      if (flagged.length === 0) return [];
+      return [
+        {
+          checkId: "PROFILE_API_ENABLED_ON_STANDARD_USER",
+          category: "profiles",
+          severity: "medium",
+          title: "Standard User profile has API access",
+          description:
+            "The default Standard User profile grants API Enabled. Any user assigned to it can call the org's APIs directly.",
+          bestPractice:
+            "The Standard User profile is a default baseline. Granting API Enabled here gives every user assigned to it programmatic access to the org, which is rarely intended and broadens the attack surface.",
+          remedy:
+            "Remove the API Enabled permission from the Standard User profile and grant it via a dedicated permission set to users who genuinely need API access (integrations, developers).",
+          affectedItems: flagged.map((p) => ({
+            name: p["Profile.Name"] || p.Label,
+            id: p.Id,
+          })),
+        },
+      ];
+    },
+  },
+  {
+    id: "SHARING_OWD_PUBLIC_READ_WRITE",
+    category: "objectSecurity",
+    severity: "high",
+    title: "Objects with Public Read/Write organisation-wide default",
+    bestPractice:
+      "Public Read/Write is the most permissive org-wide default and bypasses record-level security. Sensitive objects should default to Private and use sharing rules to grant access deliberately.",
+    remedy:
+      "Tighten the internal sharing model for sensitive objects to Private or Public Read Only, then layer sharing rules / role hierarchy / manual sharing on top.",
+    evaluate: (data) => {
+      if (!data.entitySharing || data.entitySharing.length === 0) return [];
+      const flagged = data.entitySharing.filter(
+        (e) => e.InternalSharingModel === "ReadWrite",
+      );
+      if (flagged.length === 0) return [];
+      return [
+        {
+          checkId: "SHARING_OWD_PUBLIC_READ_WRITE",
+          category: "objectSecurity",
+          severity: "high",
+          title: "Objects with Public Read/Write OWD",
+          description: `${flagged.length} object(s) have an internal Public Read/Write sharing default. Every user can read AND edit every record on these objects unless overridden.`,
+          bestPractice:
+            "Public Read/Write is the most permissive org-wide default and bypasses record-level security. Sensitive objects should default to Private and use sharing rules to grant access deliberately.",
+          remedy:
+            "Tighten the internal sharing model for sensitive objects to Private or Public Read Only, then layer sharing rules / role hierarchy / manual sharing on top.",
+          affectedItems: flagged.map((e) => ({
+            name: e.QualifiedApiName,
+            detail: `internal: ${e.InternalSharingModel}, external: ${e.ExternalSharingModel}`,
+          })),
+        },
+      ];
+    },
+  },
+  {
+    id: "SESSION_TIMEOUT_TOO_LONG",
+    category: "userAccess",
+    severity: "medium",
+    title: "Session timeout longer than 8 hours",
+    bestPractice:
+      "Long session timeouts increase the window in which a stolen or unattended session can be exploited. The Salesforce-recommended default for business hours is 2-4 hours; 8 hours is the practical upper bound.",
+    remedy:
+      "In Setup → Session Settings, reduce session timeout to 8 hours or less. Consider 'Force logout on session timeout' for additional defence in depth.",
+    evaluate: (data) => {
+      const ss = data.securitySettings?.sessionSettings;
+      if (!ss || !ss.sessionTimeout) return [];
+      // Salesforce returns timeout as a string enum. Anything 12-hour or
+      // longer is flagged. Order matters here — we use a simple keyword
+      // match because the API surface has used different cases historically.
+      const lengthy = ["TwelveHours", "TwentyFourHours"];
+      const timeout = ss.sessionTimeout;
+      if (!lengthy.some((label) => timeout.toLowerCase().includes(label.toLowerCase()))) {
+        return [];
+      }
+      return [
+        {
+          checkId: "SESSION_TIMEOUT_TOO_LONG",
+          category: "userAccess",
+          severity: "medium",
+          title: `Session timeout set to ${timeout}`,
+          description: `Org-wide session timeout is configured to ${timeout}, beyond the recommended 8-hour ceiling.`,
+          bestPractice:
+            "Long session timeouts increase the window in which a stolen or unattended session can be exploited. The Salesforce-recommended default for business hours is 2-4 hours; 8 hours is the practical upper bound.",
+          remedy:
+            "In Setup → Session Settings, reduce session timeout to 8 hours or less. Consider 'Force logout on session timeout' for additional defence in depth.",
+          affectedItems: [
+            { name: "Session Settings", detail: `sessionTimeout = ${timeout}` },
+          ],
         },
       ];
     },
