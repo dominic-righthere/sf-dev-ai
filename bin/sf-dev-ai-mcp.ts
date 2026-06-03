@@ -22,7 +22,11 @@ import "./_load-env";
 import { parseArgs } from "node:util";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { createSalesforceMcpServer, type ToolSet } from "../src/lib/mcp/server";
-import { resolveAuth, buildConnection } from "../src/lib/mcp/sf-cli-auth";
+import {
+  resolveAuth,
+  buildConnection,
+  tryGetFreshAccessToken,
+} from "../src/lib/mcp/sf-cli-auth";
 import { registerDxProxyTools, type DxProxyHandle } from "../src/lib/mcp/dx-proxy";
 
 const DEFAULT_TOOLSETS: ToolSet[] = [
@@ -113,6 +117,19 @@ async function main() {
   if (!firstOrg) usage(2);
 
   const auth = resolveAuth(firstOrg);
+
+  // Refresh the access token via the sf CLI before constructing the jsforce
+  // connection — the token on disk is frequently stale, and jsforce's own
+  // refresh flow doesn't work against the PlatformCLI connected app.
+  const fresh = tryGetFreshAccessToken(firstOrg);
+  if (fresh) {
+    auth.accessToken = fresh;
+  } else {
+    process.stderr.write(
+      "[sf-dev-ai-mcp] WARN: could not refresh access token via sf CLI; using token from ~/.sfdx (may be expired).\n",
+    );
+  }
+
   const conn = buildConnection(auth);
 
   // Surface the resolved org to stderr (stdio MCP keeps stdout for JSON-RPC).

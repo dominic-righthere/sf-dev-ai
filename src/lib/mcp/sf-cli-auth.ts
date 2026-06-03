@@ -5,6 +5,7 @@
  */
 
 import { readFileSync, existsSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import jsforce from "jsforce";
@@ -96,21 +97,50 @@ export function resolveAuth(orgArg: string): SfAuthRecord {
 }
 
 /**
- * Build a jsforce Connection from an auth record. Includes refresh-token
- * handling so a stale access token is refreshed transparently against the
- * sf CLI's PlatformCLI connected app (PKCE-based; no client secret).
+ * Ask the `sf` CLI for a freshly-refreshed access token. The stored
+ * accessToken in ~/.sfdx/<user>.json is often stale by minutes-to-hours;
+ * jsforce's own refresh against PlatformCLI fails (Salesforce returns
+ * "expired access/refresh token" for non-CLI clients). Delegating refresh
+ * to the sf binary works because it ships PlatformCLI's credentials and
+ * any required PKCE state.
+ *
+ * Returns null if sf isn't available, the org argument doesn't resolve,
+ * or anything else goes wrong — the caller then falls back to whatever
+ * token is in the auth file.
+ */
+export function tryGetFreshAccessToken(orgArg: string): string | null {
+  try {
+    const stdout = execFileSync(
+      "sf",
+      ["org", "auth", "show-access-token", "--target-org", orgArg, "--json"],
+      {
+        stdio: ["ignore", "pipe", "ignore"],
+        timeout: 30_000,
+      },
+    ).toString();
+    const parsed = JSON.parse(stdout) as {
+      status?: number;
+      result?: { accessToken?: string };
+    };
+    if (parsed.status === 0 && parsed.result?.accessToken) {
+      return parsed.result.accessToken;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Build a jsforce Connection from an auth record. The connection uses the
+ * bearer access token directly; refresh-token-based recovery is delegated
+ * to `tryGetFreshAccessToken` (which calls the sf CLI). This avoids
+ * jsforce's refresh path failing on the PlatformCLI connected app.
  */
 export function buildConnection(auth: SfAuthRecord): jsforce.Connection {
   return new jsforce.Connection({
     instanceUrl: auth.instanceUrl,
     accessToken: auth.accessToken,
-    refreshToken: auth.refreshToken,
-    oauth2: {
-      loginUrl: auth.loginUrl ?? "https://login.salesforce.com",
-      clientId: auth.clientId ?? "PlatformCLI",
-      clientSecret: "",
-      redirectUri: "http://localhost:1717/OauthRedirect",
-    },
     version: auth.instanceApiVersion ?? "62.0",
   });
 }
