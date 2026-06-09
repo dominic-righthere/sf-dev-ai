@@ -2,7 +2,7 @@
 
 **An AI-native Salesforce developer workbench: tier-gated MCP tools and whole-org governance auditing (security health, technical debt, RBAC, architecture docs) on top of jsforce and Claude Sonnet 4.**
 
-> 📄 **For a quick read:** [docs/BRIEF.md](./docs/BRIEF.md) (one-pager) · [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) (deep dive)
+> 📄 **For a quick read:** [docs/BRIEF.md](./docs/BRIEF.md) (one-pager) · [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) (deep dive) · [docs/ROADMAP.md](./docs/ROADMAP.md) (June 2026 roadmap)
 
 SF Dev AI connects to any Salesforce org via OAuth (or zero-config via the Salesforce CLI device flow) and exposes its metadata through a Model Context Protocol (MCP) server. Claude can inspect schemas, query data, modify permissions, generate flows, and explain your org's security posture — every tool declared at a risk tier, with tier 2/3 mutations requiring explicit confirmation.
 
