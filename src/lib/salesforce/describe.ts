@@ -195,8 +195,10 @@ export async function buildSchemaContext(
     .from(schemaCache)
     .where(eq(schemaCache.orgId, orgId));
 
-  const cachedMap = new Map(
-    allCached.map((r) => [r.objectName, JSON.parse(r.describeJson) as SObjectDescribe])
+  const cachedMap = new Map<string, SObjectDescribe>(
+    (allCached as { objectName: string; describeJson: string }[]).map(
+      (r) => [r.objectName, JSON.parse(r.describeJson) as SObjectDescribe]
+    )
   );
 
   const lines: string[] = ["## Available Salesforce Objects\n"];
