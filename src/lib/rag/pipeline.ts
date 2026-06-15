@@ -9,7 +9,7 @@
 import { eq } from "drizzle-orm";
 import { db } from "../db/client";
 import { orgDocuments } from "../db/schema";
-import { embedBatch, embedText, embeddingModel } from "./embed";
+import { embedBatch, embedText, embeddingModel, isEmbeddingConfigured } from "./embed";
 import { loadEmbeddings, replaceEmbeddings } from "./store";
 
 function chunk(text: string, size = 800, overlap = 100): string[] {
@@ -93,4 +93,26 @@ export async function retrieveContext(
     }))
     .sort((a, b) => b.score - a.score)
     .slice(0, k);
+}
+
+/**
+ * Best-effort context block for the in-app agent: retrieves relevant org-doc
+ * passages for `query` and formats them for prepending to the prompt. Returns
+ * "" when embeddings aren't configured, nothing is indexed, or retrieval fails —
+ * so it never breaks the agent loop.
+ */
+export async function retrievalContextPrefix(
+  orgId: string,
+  query: string,
+  k = 4,
+): Promise<string> {
+  if (!orgId || !isEmbeddingConfigured()) return "";
+  try {
+    const hits = await retrieveContext(orgId, query, k);
+    if (hits.length === 0) return "";
+    const body = hits.map((h, i) => `[${i + 1}] ${h.content}`).join("\n\n");
+    return `Relevant org documentation (retrieved):\n\n${body}`;
+  } catch {
+    return "";
+  }
 }

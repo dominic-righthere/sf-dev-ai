@@ -15,6 +15,7 @@ import { AGENT_SYSTEM_PROMPT } from "@/lib/ai/prompts/agent-system";
 import { FLOW_SYSTEM_PROMPT } from "@/lib/ai/prompts/flow-system";
 import { FLOW_REFINE_SYSTEM_PROMPT } from "@/lib/ai/prompts/flow-refine";
 import { assembleFlowContext } from "@/lib/ai/context";
+import { retrievalContextPrefix } from "@/lib/rag/pipeline";
 import type { FlowDefinition } from "@/lib/flow/types";
 import { deserializeFlowDefinition } from "@/lib/flow/types";
 
@@ -82,6 +83,9 @@ export async function POST(request: NextRequest) {
         default:
           toolsets = requestedToolsets || TOOL_PRESETS.agent;
           systemPrompt = AGENT_SYSTEM_PROMPT;
+          // Ground the agent in the org's own documentation (no-op unless
+          // embeddings are configured and documents have been indexed).
+          contextPrefix = await retrievalContextPrefix(session.orgId || "", prompt);
       }
 
       // Track whether the agent should stop (e.g., clarification sent)

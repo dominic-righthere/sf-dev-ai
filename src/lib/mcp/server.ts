@@ -122,6 +122,7 @@ export const TOOL_PRESETS = {
     "permissions",
     "governance",
     "apex",
+    "rag",
   ] as ToolSet[],
   /** Flow generation/refinement */
   flow: ["schema", "flow", "interaction"] as ToolSet[],
