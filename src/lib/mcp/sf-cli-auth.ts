@@ -9,6 +9,7 @@ import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import jsforce from "jsforce";
+import type Connection from "jsforce/lib/connection";
 
 export interface SfAuthRecord {
   username: string;
@@ -137,7 +138,7 @@ export function tryGetFreshAccessToken(orgArg: string): string | null {
  * to `tryGetFreshAccessToken` (which calls the sf CLI). This avoids
  * jsforce's refresh path failing on the PlatformCLI connected app.
  */
-export function buildConnection(auth: SfAuthRecord): jsforce.Connection {
+export function buildConnection(auth: SfAuthRecord): Connection {
   return new jsforce.Connection({
     instanceUrl: auth.instanceUrl,
     accessToken: auth.accessToken,

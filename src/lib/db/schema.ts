@@ -89,3 +89,17 @@ export const metadataCache = pgTable("metadata_cache", {
   dataJson: text("data_json").notNull(),
   cachedAt: timestamp("cached_at").notNull().defaultNow(),
 });
+
+// Vector index over generated org documents. Embeddings are stored as JSON text
+// (portable across SQLite/Postgres); similarity is computed in app. See lib/rag.
+export const documentEmbeddings = pgTable("document_embeddings", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  orgId: text("org_id").notNull(),
+  sourceType: text("source_type").notNull(),
+  sourceId: text("source_id").notNull(),
+  chunkIndex: integer("chunk_index").notNull().default(0),
+  content: text("content").notNull(),
+  embedding: text("embedding").notNull(),
+  model: text("model").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});

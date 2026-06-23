@@ -113,7 +113,7 @@ async function main() {
   // For MVP, accept a single org. Multi-org parity with DX MCP's comma list is
   // a future enhancement; in practice most agent interactions are scoped to
   // one org at a time.
-  const firstOrg = String(values.orgs).split(",")[0].trim();
+  const firstOrg = (String(values.orgs).split(",")[0] ?? "").trim();
   if (!firstOrg) usage(2);
 
   const auth = resolveAuth(firstOrg);

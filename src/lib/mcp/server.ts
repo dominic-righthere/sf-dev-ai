@@ -8,6 +8,7 @@ import { registerPermissionTools } from "./tools/permissions";
 import { registerFlowTools, registerInteractionTools } from "./tools/flow";
 import { registerGovernanceTools, type OrgContext } from "./tools/governance";
 import { registerApexTools } from "./tools/apex";
+import { registerRagTools } from "./tools/rag";
 
 export type ToolSet =
   | "data"
@@ -18,7 +19,8 @@ export type ToolSet =
   | "governance"
   | "apex"
   | "flow"
-  | "interaction";
+  | "interaction"
+  | "rag";
 
 const ALL_TOOLSETS: ToolSet[] = [
   "data",
@@ -96,6 +98,11 @@ export function createSalesforceMcpServer(options: {
           registerInteractionTools(server, onEvent, onStopLoop);
         }
         break;
+      case "rag":
+        if (getOrgContext) {
+          registerRagTools(server, getOrgContext);
+        }
+        break;
     }
   }
 
@@ -115,6 +122,7 @@ export const TOOL_PRESETS = {
     "permissions",
     "governance",
     "apex",
+    "rag",
   ] as ToolSet[],
   /** Flow generation/refinement */
   flow: ["schema", "flow", "interaction"] as ToolSet[],

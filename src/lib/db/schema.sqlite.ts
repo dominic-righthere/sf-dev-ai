@@ -89,3 +89,17 @@ export const metadataCache = sqliteTable("metadata_cache", {
   cachedAt: integer("cached_at", { mode: "timestamp" }).notNull().$defaultFn(now),
 });
 
+// Vector index over generated org documents (mirror of the pg table). Embeddings
+// stored as JSON text; similarity computed in app. See lib/rag.
+export const documentEmbeddings = sqliteTable("document_embeddings", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  orgId: text("org_id").notNull(),
+  sourceType: text("source_type").notNull(),
+  sourceId: text("source_id").notNull(),
+  chunkIndex: integer("chunk_index").notNull().default(0),
+  content: text("content").notNull(),
+  embedding: text("embedding").notNull(),
+  model: text("model").notNull(),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().$defaultFn(now),
+});
+
