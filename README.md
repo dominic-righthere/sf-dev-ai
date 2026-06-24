@@ -2,7 +2,7 @@
 
 **An AI-native Salesforce developer workbench: tier-gated MCP tools and whole-org governance auditing (security health, technical debt, RBAC, architecture docs) on top of jsforce and Claude Sonnet 4.**
 
-> 📄 **For a quick read:** [docs/BRIEF.md](./docs/BRIEF.md) (one-pager) · [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) (deep dive) · [docs/ROADMAP.md](./docs/ROADMAP.md) (June 2026 roadmap)
+> 📄 **For a quick read:** [docs/BRIEF.md](./docs/BRIEF.md) (one-pager) · [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) (deep dive) · [docs/ROADMAP.md](./docs/ROADMAP.md) (June 2026 roadmap) · [docs/DEPLOY.md](./docs/DEPLOY.md) (ECA + Vercel)
 
 SF Dev AI connects to any Salesforce org via OAuth (or zero-config via the Salesforce CLI device flow) and exposes its metadata through a Model Context Protocol (MCP) server. Claude can inspect schemas, query data, modify permissions, generate flows, and explain your org's security posture — every tool declared at a risk tier, with tier 2/3 mutations requiring explicit confirmation.
 
@@ -110,13 +110,15 @@ DATABASE_URL=file:./sfdev.db
 
 The app auto-selects the SQLite or Postgres driver based on the `DATABASE_URL` prefix (`file:`/`sqlite:` → SQLite, anything else → Postgres). Schema is mirrored across both dialects in [`src/lib/db/`](./src/lib/db/).
 
-Optional (only if you want a custom Salesforce Connected App instead of the device flow):
+Optional (only if you want a custom Salesforce auth integration instead of the zero-config device flow — required for hosted deployments):
 
 ```env
-SF_CLIENT_ID=your_connected_app_client_id
-SF_CLIENT_SECRET=your_connected_app_client_secret
+SF_CLIENT_ID=your_external_client_app_consumer_key
+SF_CLIENT_SECRET=your_external_client_app_consumer_secret
 SF_CALLBACK_URL=http://localhost:3000/auth/callback
 ```
+
+> **External Client App, not Connected App.** Salesforce disabled creation of new Connected Apps across all orgs in Spring '26 (March 2026). The OAuth wire protocol is identical, so `lib/salesforce/auth.ts` works against either — but new setups should register an **External Client App** (Setup → External Client Apps → New). See [`docs/DEPLOY.md`](./docs/DEPLOY.md) for the SaaS walkthrough.
 
 To use AWS Bedrock instead of the Anthropic API directly:
 
